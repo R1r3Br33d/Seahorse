@@ -33,24 +33,26 @@ import os
 import re
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 from datetime import datetime
-import time
 from pathlib import Path
 
+import crew
+import lobes
 import ui
 from agency import AGENCY, CONSCIENCE_MIN_WORDS, DEPARTMENTS, FREQUENCY, Agency
 from agents import LOBE_BALANCE, LOBE_MIN_WORDS, LOBES, SUB_BRAIN_MIN_WORDS, AgentSet
 from builder import build_command, persona_command
-from cortex import LENSES, Cortex, category_color, lens
-from portrait import SECTIONS as PROFILE_SECTIONS
-from portrait import PERSONAL_DOMAINS, Profile, behaviour_metrics, stated_quotes
+from cortex import Cortex, category_color, lens
 from memory import CATEGORIES as CATEGORY_NAMES
 from memory import Embedder, MemoryStore, WorkingMemory, detect_memory_command, extract_json, guess_category
-from ui import BOLD, DIM, RESET, ReplyBox, Spinner
-from personality import CORE_IDENTITY, MODEL_NAME, Personality
+from personality import CORE_CHARACTER_RULES, CORE_IDENTITY, MODEL_NAME, STRENGTH, Personality
+from portrait import PERSONAL_DOMAINS, Profile, behaviour_metrics, stated_quotes
+from portrait import SECTIONS as PROFILE_SECTIONS
 from skills import CALC_RESULT_PREFIX, SkillSet, calculate, find_calc_blocks, format_results
+from ui import BOLD, DIM, RESET, ReplyBox, Spinner
 
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
@@ -132,17 +134,19 @@ class ClaudeBackend:
     def label(self):
         return f"Claude ({self.model})"
 
-    def stream(self, system, messages):
+    def stream(self, system, messages, max_tokens=None, temperature=None, json_mode=False):
+        """Stream a reply. The keyword overrides apply to this call only (safe across threads)."""
+        temperature = self.temperature if temperature is None else temperature
         self.last_stop = None
         if not self.api_key:
             raise BackendUnavailable("ANTHROPIC_API_KEY is not set")
         body = json.dumps({
             "model": self.model,
-            "max_tokens": self.max_tokens,
+            "max_tokens": max_tokens or self.max_tokens,
             "system": system,
             "messages": messages,
             "stream": True,
-            **({"temperature": self.temperature} if self.temperature is not None else {}),
+            **({"temperature": temperature} if temperature is not None else {}),
         }).encode()
         req = urllib.request.Request(
             ANTHROPIC_URL,
@@ -197,6 +201,7 @@ class OllamaBackend:
         self.temperature = None
         self.last_stop = None
         self.fixed_ctx = os.environ.get("SEAHORSE_NUM_CTX")
+        self.keep_alive = os.environ.get("SEAHORSE_KEEP_ALIVE", "30m")  # how long the model stays loaded
         self.num_ctx = int(self.fixed_ctx or 8192)
         self._sized_for = None
 
@@ -250,14 +255,17 @@ class OllamaBackend:
         except Exception:
             return []
 
-    def stream(self, system, messages):
+    def stream(self, system, messages, max_tokens=None, temperature=None, json_mode=False):
+        """Stream a reply. The keyword overrides apply to this call only (safe across threads)."""
+        temperature = self.temperature if temperature is None else temperature
         body = json.dumps({
             "model": self.model,
             "messages": [{"role": "system", "content": system}] + messages,
             "stream": True,
-            "keep_alive": os.environ.get("SEAHORSE_KEEP_ALIVE", "30m"),  # stay loaded between messages
-            "options": {"num_ctx": self.size_context(), "num_predict": -1,
-                        **({"temperature": self.temperature} if self.temperature is not None else {})},
+            "keep_alive": self.keep_alive,  # stay loaded between messages
+            **({"format": "json"} if json_mode else {}),
+            "options": {"num_ctx": self.size_context(), "num_predict": max_tokens or -1,
+                        **({"temperature": temperature} if temperature is not None else {})},
         }).encode()
         self.last_stop = None
         req = urllib.request.Request(
@@ -341,7 +349,8 @@ class Session:
     def system_for(self, agent, active_skills, query=""):
         if self.system_override:
             return self.system_override
-        parts = [self.persona.system_prompt(self.extra, agent.traits) if agent.persona else CORE_IDENTITY]
+        parts = [self.persona.system_prompt(self.extra, agent.traits, self.crew_lines(agent))
+                 if agent.persona else CORE_IDENTITY]
         if agent.persona and self.memory_on():
             parts.append(self.memory.context(query or " ".join(self.user_texts()[-2:])))
         if agent.persona and self.cortex:
@@ -358,6 +367,21 @@ class Session:
         if self.skills.prompt(active_skills):
             parts.append(self.skills.prompt(active_skills))
         return "\n\n".join(parts)
+
+    def crew_lines(self, agent):
+        """The crew member's character for this agent, or None to use the captain's."""
+        if self.config.get("crew", True) is False:
+            return None
+        member = crew.get(agent.name)
+        if member and member.get("captain"):   # the captain: his own character, plus the pledge and chant
+            return self.persona.character_prompt() + crew.oath_lines(captain=True)
+        return crew.prompt(member, self.persona.character, CORE_CHARACTER_RULES, STRENGTH)
+
+    def seal_for(self, agent):
+        """The crew member's notary seal for this agent's replies, or ''."""
+        if self.config.get("seals", True) is False:
+            return ""
+        return crew.stamp(crew.get(agent.name) or {})
 
     @property
     def system(self):
@@ -429,7 +453,7 @@ class Session:
                 if summary:
                     system += "\n\nEarlier in this conversation (condensed to save space):\n" + summary
             self.apply_persona(agent)
-            box = ReplyBox(agent.name, backend.label(), agent.color, agent.icon)
+            box = ReplyBox(agent.name, backend.label(), agent.color, agent.icon, self.seal_for(agent))
             spinner = Spinner(f"{agent.name} is thinking").start()
             try:
                 for piece in self.pieces(backend, system, messages):
@@ -471,7 +495,7 @@ class Session:
         """Stream a reply, continuing automatically if it was cut off by a length limit."""
         so_far = []
         convo = list(messages)
-        for _round in range(MAX_CONTINUATIONS + 1):
+        for _round in range(int(self.config.get("max_continuations", MAX_CONTINUATIONS)) + 1):
             got = []
             for piece in backend.stream(system, convo):
                 got.append(piece)
@@ -539,51 +563,38 @@ class Session:
                 "disagreement between them, and answer in your own voice (don't mention the council):\n" + joined)
 
     def lobes_on(self, agent):
-        return (agent is self.agents.default and self.config.get("lobes", True) is not False
+        return (agent.name == self.agents.default.name and self.config.get("lobes", True) is not False
                 and all(self.agents.get(l["agent"]) for l in LOBES.values()))
 
-    def lobe_council(self, agent, system, messages):
-        """Left and right lobes each give the core a quick read; returns notes for its prompt."""
-        texts = self.user_texts(messages)
-        if not self.lobes_on(agent) or not texts or len(texts[-1].split()) < LOBE_MIN_WORDS:
-            return ""
-        recent = "\n\n".join(f"{m['role'].upper()}: {m['content'][:2000]}" for m in messages[-6:]
-                              if not m["content"].startswith(CALC_RESULT_PREFIX))
-        reads = []
-        for side, lobe in LOBES.items():
-            other = self.agents.get(lobe["agent"])
-            lobe_system = self.system_for(other, [], texts[-1])
-            prompt = (f"Conversation:\n{recent}\n\n{lobe['read']}\n"
-                      "Terse bullet points, at most 70 words. These are private notes for the rest of the mind, not the reply.")
-            with Spinner(f"{other.name}, the {lobe['label']}, is reading"):
-                text = self._sub_call(other, lobe_system, prompt)
-            if text:
-                reads.append((side, other, text))
-                self.show_sub(agent, {"name": f"{other.name} ({lobe['label']})", "icon": ui.icon_for(other.name, other.icon),
-                                      "color": other.color, "lobe": True}, text)
-        if not reads:
-            return ""
-        balance = LOBE_BALANCE.get(self.config.get("lobe_balance", "even"), LOBE_BALANCE["even"])
-        joined = "\n\n".join(f"[{side} lobe - {o.name}]\n{t}" for side, o, t in reads)
+    def _quick_call(self, agent, system, prompt, max_tokens):
+        """A short, quiet JSON answer for internal votes. Thread-safe: no shared state is changed."""
+        temp = agent.temperature if agent.temperature is not None else 0.2
+        for backend in self.backends(agent):
+            try:
+                return "".join(backend.stream(system, [{"role": "user", "content": prompt}], max_tokens=max_tokens,
+                                              temperature=min(temp, 1.0), json_mode=True)).strip()
+            except (BackendUnavailable, RuntimeError):
+                continue
+        return None
+
+    def show_vote(self, result):
+        """Print the lobe vote (the app overrides show_sub to stream it)."""
         judge = self.agents.get("judge")
-        if judge and len(reads) == 2 and self.config.get("judge", True) is not False:
-            prompt = (f"Conversation:\n{recent}\n\nThe two lobes' reads of the latest message:\n{joined}\n\n"
-                      "Rule between them for Seahorse: where they agree, where they conflict, which claims are better "
-                      "supported by evidence, and what the user most needs from the answer. On a contested political or "
-                      "moral value question, don't pick a side - name the crux. Terse bullet points, at most 70 words; "
-                      "private notes, not the reply.")
-            with Spinner("the Judge is weighing the lobes"):
-                ruling = self._sub_call(judge, self.system_for(judge, [], texts[-1]), prompt)
-            if ruling:
-                self.show_sub(agent, {"name": "judge (ruling)", "icon": ui.icon_for(judge.name, judge.icon),
-                                      "color": judge.color, "lobe": True}, ruling)
-                joined += f"\n\n[the Judge's ruling]\n{ruling}"
-                balance += " Follow the Judge's ruling where the lobes conflict."
-        return ("\n\nYour two lobes have read the latest message. Join them into one answer: the left lobe's precision "
-                f"and the right lobe's instinct. {balance} Doc is a Democrat and Fiery Black a Republican: on a "
-                "political question, set out both of their views fairly, with the strongest case for each, keep your "
-                "own answer balanced unless the user asks for one side, keep the facts straight, and never tell the "
-                "user how to vote. Don't mention the lobes unless asked.\n" + joined)
+        self.show_sub(self.agents.default, {"name": "lobe vote", "icon": ui.icon_for(judge.name, judge.icon) if judge else "⚖",
+                                            "color": judge.color if judge else 252, "lobe": True},
+                      "\n".join(lobes.summary_lines(result)))
+
+    def lobe_council(self, agent, system, messages):
+        """Doc and Fiery Black vote on how the core should answer; returns notes for its prompt."""
+        if not self.lobes_on(agent):
+            return ""
+        if not hasattr(self, "_vote"):
+            self._vote = lobes.LobeVote(self._quick_call, self.config)
+        self._vote.config = self.config
+        result = self._vote.run(self.agents, [m for m in messages if not m["content"].startswith(CALC_RESULT_PREFIX)],
+                                self.user_texts(messages), judge_on=self.config.get("judge", True) is not False,
+                                show=self.show_vote, spinner=Spinner)
+        return lobes.notes_for_core(result, self.config.get("lobe_balance", "even")) if result else ""
 
     def _agent_turn(self, agent, active_skills, messages):
         """One agent reply, including calculator rounds. Appends to `messages`. Returns final text or None."""
@@ -1139,8 +1150,10 @@ HELP = f"""{BOLD}Commands{RESET}
   /finetune use | revert    run Seahorse on the tuned model, or go back
   /router [reset]           routing that learns from the agents you pick with @name
   /brain [agent on|off]     Doc's and Fiery Black's sub-agent brains
-  /lobes [on|off|left|even|right]   Doc (left lobe) and Fiery Black (right lobe) reading for Seahorse
-  /judge [on|off]           the Judge ruling between the lobes (talk to him with @judge)
+  /lobes [on|off|left|even|right]   Doc (left lobe) and Fiery Black (right lobe) vote on how Seahorse answers
+  /lobes stats              how the votes went: agreement, Judge tie-breaks, speed
+  /lobes words|timeout|margin <n>   vote on messages of n+ words · time limit · how close counts as a split
+  /judge [on|off]           the Judge breaking split votes (talk to him with @judge)
 
 {BOLD}Inner voice and the Bureau of Magic{RESET}
   /journal [n|lessons|all]  his private journal, written after each chat
@@ -1151,12 +1164,18 @@ HELP = f"""{BOLD}Commands{RESET}
   /magic often|sometimes|rarely|off   how often surprises appear on their own
 
 {BOLD}Character{RESET}
-  /character                the Lonesome Grim: his tale, story, voice, mannerisms and spirit-sense
+  /character                the Seahorse: his personality piece (A Lonesome Grim), story, voice, mannerisms and spirit-sense
   /character on|off         play the character, or speak plainly
   /character light|medium|strong   how strong the accent is
   /build [step]             design him step by step: identity, backstory, tale, voice, strength,
                             mannerisms, spirit, rules, greetings, traits, preview (test + save)
-  /persona [use|save|delete|new] <name>   saved personas (the Lonesome Grim is built in)
+  /persona [use|save|delete|new] <name>   saved personas (the Seahorse is built in)
+  /crew                     his crew: every agent's character (name, post, greeting)
+  /crew <agent>             one crew member in full: backstory, tale, voice, spirit...
+  /build crew <agent> [step]   build a crew member with the same 11 steps
+  /crew reset <agent>       back to the default · /crew on|off  crew voices or the captain's for all
+  /crew seals on|off        stamp each reply with the crew member's notary seal
+  /crew pledge · /crew chant   the crew's loyalty pledge and chant (by Daryl James-Michael Kennedy)
 
 {BOLD}Personality{RESET}
   /traits [agent]           show Seahorse's traits overall, or as one agent sees them
@@ -1898,6 +1917,25 @@ def lobes_command(session, arg):
         cfg["lobe_balance"] = arg
         ui.save_config(cfg)
         ui.note(f"balance: {arg} - {LOBE_BALANCE[arg]}")
+    elif arg == "stats":
+        print(lobes.describe_stats())
+    elif arg == "stats reset":
+        lobes.reset_stats()
+        ui.note("vote stats cleared")
+    elif arg.startswith(("words ", "timeout ", "margin ")):
+        key, _, val = arg.partition(" ")
+        conf = {"words": ("lobe_min_words", int, 1, 500), "timeout": ("lobe_timeout", float, 3, 600),
+                "margin": ("lobe_margin", float, 0.0, 2.0)}[key]
+        try:
+            cfg[conf[0]] = max(conf[2], min(conf[3], conf[1](val)))
+            ui.save_config(cfg)
+            ui.note(f"{key} set to {cfg[conf[0]]}")
+        except ValueError:
+            ui.note(f"/lobes {key} <number>")
+    elif arg in ("parallel on", "parallel off"):
+        cfg["lobe_parallel"] = arg.endswith("on")
+        ui.save_config(cfg)
+        ui.note("the lobes vote at the same time" if cfg["lobe_parallel"] else "the lobes vote one after the other")
     else:
         left, right = session.agents.get(LOBES["left"]["agent"]), session.agents.get(LOBES["right"]["agent"])
         core = session.agents.default
@@ -1911,9 +1949,11 @@ def lobes_command(session, arg):
         print(f"     {DIM}Democrat           between them       Republican{RESET}")
         print(f"     {DIM}analysis, facts    joins both         intuition, big picture,{RESET}")
         print(f"     {DIM}language, logic    into one answer    tone, vigilance{RESET}\n")
-        ui.note(f"lobes {state} · balance {cfg.get('lobe_balance', 'even')} · they read messages of "
-                f"{LOBE_MIN_WORDS}+ words that Seahorse himself answers")
-        ui.note("/lobes on|off · /lobes left|even|right")
+        words = cfg.get("lobe_min_words") or LOBE_MIN_WORDS
+        ui.note(f"lobes {state} · balance {cfg.get('lobe_balance', 'even')} · they vote on messages of "
+                f"{words}+ words that Seahorse himself answers, both at once, and the Judge breaks close splits")
+        print(lobes.describe_stats())
+        ui.note("/lobes on|off · left|even|right · stats · words <n> · timeout <s> · margin <0-2> · parallel on|off")
     print()
 
 
@@ -2085,6 +2125,8 @@ def handle_command(session, line):
         brain_command(session, arg)
     elif cmd == "lobes":
         lobes_command(session, arg)
+    elif cmd == "crew":
+        crew_command(session, arg)
     elif cmd == "units":
         import units as U
         m = re.match(r"^\s*(-?[\d.]+(?:e-?\d+)?)\s+(.+?)\s+(?:to|in|->)\s+(.+?)\s*$", arg) or \
@@ -2228,6 +2270,56 @@ def load_extra_instructions():
         return ""
 
 
+def crew_command(session, arg):
+    """/crew, /crew <agent>, /crew reset <agent>, /crew on|off."""
+    words = arg.split()
+    if words[:1] in (["pledge"], ["chant"]):
+        o = crew.oath(words[0])
+        print(f"  {BOLD}{o['title']}{RESET}  {DIM}by {o['author']}{RESET}\n")
+        for line in o["text"].splitlines():
+            print(f"    {line}")
+    elif words[:1] == ["seals"] and words[1:] in (["on"], ["off"]):
+        session.config["seals"] = words[1] == "on"
+        ui.save_config(session.config)
+        ui.note("replies are stamped with each crew member's seal" if session.config["seals"] else "seals off")
+    elif words and words[0] in ("on", "off"):
+        session.config["crew"] = words[0] == "on"
+        ui.save_config(session.config)
+        ui.note("each agent answers as their crew member" if session.config["crew"]
+                else "every agent answers in the captain's own voice")
+    elif len(words) == 2 and words[0] == "reset":
+        agent = session.agents.get(words[1])
+        if agent and crew.reset(agent.name):
+            fresh = AgentSet(session.agents.folder).get(agent.name)
+            agent.traits = fresh.traits if fresh else agent.traits
+            ui.note(f"@{agent.name}'s crew member is back to the default")
+        else:
+            ui.note("nothing to reset (that crew member hasn't been edited)")
+    elif words:
+        agent = session.agents.get(words[0])
+        member = crew.get(agent.name) if agent else None
+        print(crew.show(agent.name, member) if member else "  no such crew member (/crew lists them)")
+    else:
+        on = session.config.get("crew", True) is not False
+        print(crew.describe(session.agents.agents, ui.paint_color))
+        ui.note(f"crew voices are {'on' if on else 'off'} (/crew on|off)")
+    print()
+
+
+def apply_model_settings(config, claude, local):
+    """Settings from the app's Settings tab. Environment variables, when set, still win."""
+    if config.get("claude_model") and not os.environ.get("CLAUDE_MODEL"):
+        claude.model = config["claude_model"]
+    if config.get("max_tokens") and not os.environ.get("SEAHORSE_MAX_TOKENS"):
+        claude.max_tokens = int(config["max_tokens"])
+    if config.get("num_ctx") and not os.environ.get("SEAHORSE_NUM_CTX"):
+        local.fixed_ctx, local.num_ctx = str(config["num_ctx"]), int(config["num_ctx"])
+    elif not config.get("num_ctx") and not os.environ.get("SEAHORSE_NUM_CTX"):
+        local.fixed_ctx, local._sized_for = None, None   # back to automatic sizing
+    if config.get("keep_alive") and not os.environ.get("SEAHORSE_KEEP_ALIVE"):
+        local.keep_alive = config["keep_alive"]
+
+
 def build_session(mode_override=None):
     """Create a fully wired Session (models, personality, memory, cortex, profile). Returns (session, first_run)."""
     config, first_run = ui.load_config()
@@ -2246,9 +2338,12 @@ def build_session(mode_override=None):
         model=persona.state.get("base_model", "llama3.1:8b"),
         base_url=os.environ.get("OLLAMA_URL", "http://localhost:11434"),
     )
+    apply_model_settings(config, claude, local)
     installed = local.installed_models()
     if os.environ.get("LOCAL_MODEL"):
         local.model = os.environ["LOCAL_MODEL"]
+    elif config.get("local_model"):          # chosen in the app's Settings tab
+        local.model = config["local_model"]
     elif any(m.split(":")[0] == MODEL_NAME for m in installed):
         local.model = MODEL_NAME
     elif installed and persona.state["base_model"] in installed:

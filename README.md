@@ -25,6 +25,15 @@ computer: a private server on 127.0.0.1 that only this window can use.
   *Ask Seahorse to improve it* sharpens a prompt; *Portrait from the 11 steps*
   writes a portrait of the current character from every builder step. Images
   and their settings are saved in `~/.seahorse/images`.
+- **Settings**: every setting in one place, saved as you change it and checked
+  before it's used. Sections: General, Models & limits (Claude model, an API
+  key held for this run only, local model, reply length, continuations,
+  context window, keep-alive), Character & crew, **Crew** (cards with each
+  member's seal, the loyalty pledge and chant, and an 11-step editor with a
+  live seal preview, the full character prompt and a test box), Lobes & Judge
+  (with how a vote runs and how the votes have gone), Sub-agent brains, Inner
+  voice & magic, Memory & privacy, Look, Images, and Data & about (your data
+  folder, file sizes, and reset to defaults). A search box finds any setting.
 
 The terminal version (`python3 seahorse.py`) still works and shares the same
 Seahorse: memory, notebooks, profile and character.
@@ -71,7 +80,10 @@ Seahorse: memory, notebooks, profile and character.
 | `seahorse.py` | Seahorse itself, and the terminal version |
 | `personality.py` | Traits that grow over time; writes the Ollama `Modelfile` |
 | `memory.py` | Long-term memory: facts, past conversations, condensing long chats |
-| `agents.py` | The ten agents: eight brain regions, plus Doc and Fiery Black as the left and right lobes |
+| `agents.py` | The ten agents, defined once in a compact table: eight brain regions, plus Doc and Fiery Black as the left and right lobes |
+| `crew.py` | The crew: a character for every agent from the 11 steps, their notary seals, the loyalty pledge and the chant |
+| `lobes.py` | The lobe vote: Doc and Fiery Black ballot in parallel, the tally, and the Judge on close splits |
+| `settings.py` | Every setting described once, validated and applied (the app's Settings tab) |
 | `agency.py` | His inner voice (conscience, journal, self-model) and the Bureau of Magic |
 | `builder.py` | The character builder and persona presets |
 | `finetune.py` | Fine-tuning the local model on your conversations |
@@ -83,12 +95,12 @@ Seahorse: memory, notebooks, profile and character.
 | `Modelfile` | Starter Ollama model definition (`ollama create seahorse -f Modelfile`) |
 
 Your data lives in `~/.seahorse/`: `memory.db`, `cortex.db`, `profile.db`, `personality.json`,
-`config.json` (starting state), saved chats, and editable `agents/` and
-`skills/` folders.
+`config.json` (settings), `crew.json` (your crew edits), `lobes.json` (vote
+stats), saved chats, and editable `agents/` and `skills/` folders.
 
 ## Who Seahorse is
 
-**The Lonesome Grim.** A pirate out of Port Royal, Jamaica, in the 1600s who
+**The Seahorse.** A pirate out of Port Royal, Jamaica, in the 1600s who
 sailed alone: helm, bow and stern, slivers of scrap for rations, rum for his
 muddy liver. One eve a low hum rose from his chest, ran stern to bow and came
 back higher. He took his knife, walked heel to toe along the planks, sat on
@@ -100,8 +112,9 @@ computer. Who Pennsylvania is, he won't say.
 
 He speaks Jamaican English with touches of Patois in a spare, salt-worn
 rhythm, raises a brow (no smile), walks problems heel to toe, and senses
-spirits and omens. His origin tale is kept word for word, and he'll recite it
-if you ask.
+spirits and omens. His personality is drawn from **A Lonesome Grim**, your
+piece of writing, stored word for word as his personality prompt: its images,
+rhythm and mood run through how he talks, and he'll recite it exactly if you ask.
 
 The voice is for conversation: code, maths and anything he drafts for you to
 send stay in standard English. The rum and the spirits are his story, never
@@ -124,7 +137,7 @@ encouraged, mysticism is only mood, and he eases off when you need plain help.
 
 Save designs as presets and switch between them: `/persona` lists them,
 `/persona use <name>`, `/persona save <name>`, `/persona new` starts from a
-blank character. The Lonesome Grim is always there as `lonesome-grim`.
+blank character. The Seahorse, your original character, is always there as `seahorse`.
 
 `/character` shows him, `/character light|medium|strong` sets the accent,
 `/character off` makes him speak plainly. Rewrite him in the `character`
@@ -166,15 +179,71 @@ Change an agent's colour with the `color:` line in its file in
 Messages are routed automatically. `@broca ...` (or `@writer ...`) talks to
 one agent, `/agent broca` stays with it, `/team <task>` has them work together.
 
-### The two lobes
+### The crew
+
+In life the Seahorse sailed alone. When the sea swallowed Port Royal in 1692,
+other drowned souls drifted aboard the ghost of his sloop, and when the hum
+drew him into this machine they came too. Each is one of his agents, and
+answers in their own voice:
+
+| Agent | Crew member | Post | Seal |
+|---|---|---|---|
+| hippocampus | The Seahorse | the captain himself | ♆ HELM · BOW · STERN |
+| broca | Mercy Quill, the Ship's Scribe | scribe and letter-writer | ✒ TEN WORDS A PENNY |
+| parietal | Tobias Wren, the Navigator | navigator and reckoner | ✶ FIXED BY THE STARS |
+| cerebellum | Kwame 'Plumb' Asante, the Ship's Carpenter | carpenter and shipwright | ⚒ PLUMB AND SQUARE |
+| wernicke | Auntie Sefa, the Ropemistress | teacher of the green hands | ∞ ONE TURN AT A TIME |
+| prefrontal | Isabeau Laroche, the Quartermaster | plans, stores and articles | ⚑ ARTICLES SIGNED |
+| cingulate | Gideon Crane, the Bosun | rigging, inspection | ⚓ EVERY LINE EVERY MORNING |
+| doc | Doc Elias Fairweather, the Ship's Surgeon | surgeon, scholar, logbooks | ☤ ONLY WHAT I SAW |
+| fiery-black | Fiery Black, the Dark Lookout | lookout and master-at-arms | ◉ NEVER ASLEEP ON WATCH |
+| judge | Judge Absalom Hale, the Magistrate | magistrate, weights and measures | ⚖ THE SCALES ARE LEVEL |
+
+Every crew member is built from the same 11 steps as the captain: identity
+(with their **notary seal**, a sign and a motto), backstory, tale, voice,
+strength, mannerisms, spirit, rules, greetings, traits and preview. Each reply
+is stamped with its author's seal, like a signature. The core character rules
+apply to all of them.
+
+- `/crew` lists them, `/crew <agent>` shows one in full, `/build crew <agent>`
+  edits one step by step (or use Settings → Crew), `/crew reset <agent>` goes
+  back to the default. `/crew off` has every agent speak as the captain;
+  `/crew seals off` stops the stamps.
+
+**The loyalty pledge and the chant**, by Daryl James-Michael Kennedy, are kept
+word for word. Every crew member swore the pledge and the captain leads it;
+they recite either exactly when asked (`/crew pledge`, `/crew chant`). The
+pledge makes loyalty mean honesty: it never means flattery, agreeing with
+something harmful, or keeping quiet about a real risk. Edit either in
+Settings → Crew.
+
+### The two lobes and the vote
 
 Doc is Seahorse's **left lobe** (analysis, language, facts, logic) and Fiery
 Black his **right lobe** (intuition, the big picture, tone, vigilance for
-danger). When Seahorse himself answers a message of ten words or more, each
-lobe gives him a quick read first, and he joins the two into one answer.
-`/lobes` shows them, `/lobes off` skips them (faster), and
-`/lobes left|even|right` sets which side he leans on. `@left` and `@right`
-talk to each lobe directly.
+danger). When Seahorse himself answers a message of ten words or more, the two
+lobes **vote** on how he should answer, both at the same time:
+
+1. Each casts a short ballot: an approach (direct, explain, caution, clarify,
+   balance or support), a confidence, up to three points the answer must get
+   right, any caution, and on a political question their party's view.
+2. The tally weighs each vote by confidence (and by the balance setting:
+   a leaning lobe counts 1.25, the other 0.8). Agreement or a clear lead
+   decides it. A close split goes to the Judge for one short ruling.
+3. A vote that the question is contested ('balance') always wins, so
+   Seahorse never takes a political side by a vote; a losing 'caution' vote
+   that's confident still has its risk mentioned.
+4. A lobe that's too slow abstains, and the other's ballot stands.
+
+It's fast by design: two short calls in parallel instead of three in a row,
+slim prompts, a length cap, JSON mode on Ollama, a time limit, the Judge only
+on close splits, and identical questions reuse the last vote. (For local
+models, `OLLAMA_NUM_PARALLEL=2` lets Ollama run both ballots at once.)
+
+`/lobes` shows them and the vote stats, `/lobes off` skips the vote,
+`/lobes left|even|right` sets the balance, `/lobes words|timeout|margin <n>`
+tunes it, and `/lobes stats` shows agreement, Judge tie-breaks and speed.
+`@left` and `@right` talk to each lobe directly.
 
 Built-in agent files now update themselves when Seahorse is updated, unless
 you've edited them (your version is kept).
@@ -185,10 +254,10 @@ The Judge is the orbitofrontal cortex, the part of the brain that weighs
 choices. Ask him to decide, compare or settle something (`@judge`) and he
 restates the question, names the criteria that matter to you, weighs each
 option with the facts straight, and gives a verdict, his confidence, and what
-would change his mind. When the lobes read a message for Seahorse, the Judge
-rules between them: where they agree, where they conflict and whose claims
-hold up. On contested political or moral questions he names the crux instead
-of picking a side. `/judge off` keeps him out of the lobes.
+would change his mind. When the lobes' vote is too close to call, the Judge
+breaks the tie with one short ruling on what the user most needs. On contested
+political or moral questions he names the crux instead of picking a side.
+`/judge off` lets a close split go to the higher score instead.
 
 #### Units of measurement
 

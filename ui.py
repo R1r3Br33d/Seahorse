@@ -59,6 +59,12 @@ DEFAULTS = {
     "lobes": True,             # Doc (left) and Fiery Black (right) read for Seahorse (/lobes)
     "lobe_balance": "even",    # even | left | right
     "judge": True,             # the Judge rules between the lobes (/judge)
+    "crew": True,              # each agent answers as their crew member (/crew)
+    "seals": True,             # stamp each reply with the crew member's notary seal
+    "lobe_min_words": 10,      # the lobes vote on messages at least this long
+    "lobe_timeout": 45,        # seconds before a slow lobe abstains
+    "lobe_margin": 0.25,       # how close a vote counts as a split for the Judge
+    "lobe_parallel": True,     # both lobes vote at once
 }
 
 THEMES = {
@@ -108,6 +114,27 @@ RESET = "\033[0m" if TERMINAL_COLOR else ""
 BOLD = "\033[1m" if TERMINAL_COLOR else ""
 DIM = "\033[2m" if TERMINAL_COLOR else ""
 ITALIC = "\033[3m" if TERMINAL_COLOR else ""
+
+
+def xterm_hex(n):
+    """xterm 256-colour number -> #rrggbb."""
+    n = int(n)
+    base = ["000000", "800000", "008000", "808000", "000080", "800080", "008080", "c0c0c0",
+            "808080", "ff0000", "00ff00", "ffff00", "0000ff", "ff00ff", "00ffff", "ffffff"]
+    if n < 16:
+        return "#" + base[n]
+    if n < 232:
+        n -= 16
+        levels = [0, 95, 135, 175, 215, 255]
+        r, g, b = levels[n // 36], levels[(n // 6) % 6], levels[n % 6]
+        return f"#{r:02x}{g:02x}{b:02x}"
+    v = 8 + 10 * (n - 232)
+    return f"#{v:02x}{v:02x}{v:02x}"
+
+
+def paint_color(text, color):
+    """Bold text in a 256-colour (plain without colour)."""
+    return f"{BOLD}{c256(color)}{text}{RESET}" if COLOR else text
 
 FOAM = AQUA = TEAL = SEA = DEEP = CORAL = SAND = KELP = ART = ""
 GRADIENT = [""] * 5
@@ -691,8 +718,9 @@ class ReplyBox:
         ╰─ 2.4s
     """
 
-    def __init__(self, agent, backend_label, color=None, icon=None):
+    def __init__(self, agent, backend_label, color=None, icon=None, seal=""):
         self.agent = agent
+        self.seal = seal   # the crew member's notary seal, stamped on the closing line
         self.backend = backend_label
         self.color = c256(color) if color is not None else CORAL
         self.icon = icon_for(agent, icon)
@@ -735,8 +763,9 @@ class ReplyBox:
         secs = time.time() - self.started
         words = f" · {self.chars // 5} words" if self.chars > 400 else ""
         extra = f" · {note_text}" if note_text else ""
+        stamp = f"  {self.color}{self.seal}{RESET}" if self.seal else ""
         if self.boxed:
             lead = "\r" if self.at_line_start else "\n"
-            print(f"{lead}{TEAL}{BL}{H}{RESET} {DIM}{secs:.1f}s{words}{extra}{RESET}\n")
+            print(f"{lead}{TEAL}{BL}{H}{RESET} {DIM}{secs:.1f}s{words}{extra}{RESET}{stamp}\n")
         else:
-            print(f"\n{DIM}{secs:.1f}s{words}{extra}{RESET}\n")
+            print(f"\n{DIM}{secs:.1f}s{words}{extra}{RESET}{stamp}\n")

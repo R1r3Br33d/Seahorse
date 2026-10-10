@@ -67,7 +67,11 @@ ui.Spinner.stop = lambda self: None
 
 import seahorse as sh  # noqa: E402
 from cortex import category_color, lens  # noqa: E402
-from memory import WorkingMemory, detect_memory_command, guess_category  # noqa: E402
+from memory import WorkingMemory  # noqa: E402
+from personality import character_title  # noqa: E402
+import crew  # noqa: E402
+import lobes  # noqa: E402
+import settings as settings_mod  # noqa: E402
 from skills import CALC_RESULT_PREFIX, calculate, find_calc_blocks, format_results  # noqa: E402
 
 STATIC = HERE / "app"
@@ -82,20 +86,7 @@ LOCK = threading.Lock()
 # Colours
 # ---------------------------------------------------------------------------
 
-def xterm_hex(n):
-    """xterm 256-colour number -> #rrggbb."""
-    n = int(n)
-    base = ["000000", "800000", "008000", "808000", "000080", "800080", "008080", "c0c0c0",
-            "808080", "ff0000", "00ff00", "ffff00", "0000ff", "ff00ff", "00ffff", "ffffff"]
-    if n < 16:
-        return "#" + base[n]
-    if n < 232:
-        n -= 16
-        levels = [0, 95, 135, 175, 215, 255]
-        r, g, b = levels[n // 36], levels[(n // 6) % 6], levels[n % 6]
-        return f"#{r:02x}{g:02x}{b:02x}"
-    v = 8 + 10 * (n - 232)
-    return f"#{v:02x}{v:02x}{v:02x}"
+xterm_hex = ui.xterm_hex
 
 
 def plain(text):
@@ -127,12 +118,12 @@ class WebSession(sh.Session):
                 started = False
                 for piece in self.pieces(backend, system, messages):
                     if not started:
-                        self.emit({"type": "start", "agent": agent.name, "backend": backend.label()})
+                        self.emit(self.start_event(agent, backend))
                         started = True
                     reply.append(piece)
                     self.emit({"type": "token", "text": piece})
                 if not started:
-                    self.emit({"type": "start", "agent": agent.name, "backend": backend.label()})
+                    self.emit(self.start_event(agent, backend))
                 self.emit({"type": "end"})
                 return "".join(reply), "ok"
             except sh.BackendUnavailable as e:
@@ -148,6 +139,17 @@ class WebSession(sh.Session):
                 return None, "failed"
         self.emit({"type": "error", "text": "No model available: " + "; ".join(errors)})
         return None, "failed"
+
+    def start_event(self, agent, backend):
+        """The 'start' event: who is answering, with their crew name and notary seal."""
+        ev = {"type": "start", "agent": agent.name, "backend": backend.label()}
+        member = crew.get(agent.name) if self.config.get("crew", True) is not False else None
+        if member and not member.get("captain"):
+            ev["crew"] = member.get("name", "")
+        if self.config.get("seals", True) is not False and member:
+            sign, motto = crew.seal(member)
+            ev["seal"] = {"sign": sign, "motto": motto, "name": member.get("name", ""), "stamp": crew.stamp(member)}
+        return ev
 
     def show_conscience(self, note):
         from agency import AGENCY
@@ -170,8 +172,9 @@ class WebSession(sh.Session):
         if self.sub_brains_on(agent) and len((self.user_texts(messages) or [""])[-1].split()) >= sh.SUB_BRAIN_MIN_WORDS:
             self.emit({"type": "thinking", "agent": agent.name, "label": f"{agent.name}'s brain is working"})
         system += self.inner_council(agent, system, messages)
-        if self.lobes_on(agent) and len((self.user_texts(messages) or [""])[-1].split()) >= sh.LOBE_MIN_WORDS:
-            self.emit({"type": "thinking", "agent": agent.name, "label": "the left and right lobes are reading"})
+        min_words = int(self.config.get("lobe_min_words") or sh.LOBE_MIN_WORDS)
+        if self.lobes_on(agent) and len((self.user_texts(messages) or [""])[-1].split()) >= min_words:
+            self.emit({"type": "thinking", "agent": agent.name, "label": "the lobes are voting"})
         system += self.lobe_council(agent, system, messages)
         final = None
         for round_no in range(sh.MAX_CALC_ROUNDS + 1):
@@ -468,7 +471,7 @@ def character_steps(session):
     c = session.persona.character
     traits = ", ".join(f"{n} {t['value']:.2f}->{t['target']:.2f}" for n, t in session.persona.traits.items())
     return [
-        ("identity", " - ".join(x for x in (c.get("name"), c.get("epithet")) if x)),
+        ("identity", character_title(c)),
         ("backstory", c.get("backstory", "")),
         ("tale", c.get("tale", "")),
         ("voice", c.get("voice", "")),
@@ -538,8 +541,12 @@ def app_state(session):
     agents = []
     for a in session.agents.agents.values():
         spec = lens(a.name)
+        member = crew.get(a.name) or {}
+        sign, motto = crew.seal(member)
         agents.append({"name": a.name, "icon": ui.APP_ICONS.get(a.name) or ui.icon_for(a.name, a.icon),
                        "color": xterm_hex(a.color),
+                       "crew": member.get("name", ""), "epithet": member.get("epithet", ""),
+                       "seal": {"sign": sign, "motto": motto},
                        "description": a.description, "purpose": spec.get("purpose") or a.description,
                        "skill": spec.get("skill", ""), "aliases": a.aliases})
     c = session.persona.character
@@ -563,6 +570,31 @@ def app_state(session):
         "incognito": session.incognito,
         "mode": session.mode,
     }
+
+
+def settings_payload():
+    return {**settings_mod.describe(SESSION), "crew": settings_mod.crew_state(SESSION)}
+
+
+def crew_test(agent_name, text):
+    """One short reply from a crew member, for the Settings preview."""
+    agent = SESSION.agents.get(agent_name)
+    if not agent:
+        raise settings_mod.SettingError("no such agent")
+    system = SESSION.system_for(agent, []) if agent.persona else agent.slim_system()
+    reply = SESSION.complete((text or "Who are you, and what do you do aboard?")[:500], agent=agent, system=system,
+                             label="testing")
+    return {"reply": reply or "(no model reachable for a test)"}
+
+
+def _set_image_url(name):
+    def hook(value):
+        if not os.environ.get(f"SEAHORSE_{name.upper()}_URL"):
+            globals()[f"{name.upper()}_URL"] = (value or settings_mod.DEFAULTS[f"{name}_url"]).rstrip("/")
+    return hook
+
+
+IMAGE_HOOKS = {"a1111_url": _set_image_url("a1111"), "comfy_url": _set_image_url("comfy")}
 
 
 # ---------------------------------------------------------------------------
@@ -629,7 +661,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, html, "text/html; charset=utf-8",
                               {"Content-Security-Policy": "default-src 'self'; img-src 'self' data:; "
                                                           "style-src 'self' 'unsafe-inline'; script-src 'self'"})
-        if path in ("/app.js", "/style.css"):
+        if path in ("/app.js", "/settings.js", "/style.css", "/settings.css"):
             ctype = "text/javascript" if path.endswith(".js") else "text/css"
             return self._send(200, (STATIC / path[1:]).read_bytes(), f"{ctype}; charset=utf-8")
         if path.startswith("/images/"):
@@ -652,6 +684,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {"images": gallery(), "engines": image_engines()})
         if path == "/api/character":
             return self._send(200, {"steps": character_steps(SESSION)})
+        if path == "/api/settings":
+            return self._send(200, settings_payload())
         return self._send(404, {"error": "not found"})
 
     # -------------------------------------------------- POST
@@ -693,9 +727,44 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, improve_prompt(SESSION, str(body.get("prompt", ""))))
             if path == "/api/images/portrait":
                 return self._send(200, portrait_prompt(SESSION))
+            if path.startswith(("/api/settings", "/api/crew", "/api/lobes")):
+                return self.settings_post(path, body)
         except Exception as e:  # noqa: BLE001 - report errors to the app
             return self._send(500, {"error": str(e)})
         return self._send(404, {"error": "not found"})
+
+    # -------------------------------------------------- settings
+    def settings_post(self, path, body):
+        with LOCK:
+            try:
+                notes = []
+                if path == "/api/settings":
+                    changes = body.get("changes")
+                    if not isinstance(changes, dict) or not changes:
+                        raise settings_mod.SettingError("nothing to change")
+                    notes = settings_mod.apply(SESSION, changes, IMAGE_HOOKS)
+                elif path == "/api/settings/reset":
+                    settings_mod.reset(SESSION, IMAGE_HOOKS)
+                    notes = ["settings are back to their defaults"]
+                elif path == "/api/crew":
+                    settings_mod.save_crew(SESSION, str(body.get("agent", "")), body.get("member") or {})
+                    notes = ["saved - they'll answer this way from your next message"]
+                elif path == "/api/crew/reset":
+                    settings_mod.reset_crew(SESSION, str(body.get("agent", "")))
+                    notes = ["back to the default"]
+                elif path == "/api/crew/oath":
+                    settings_mod.save_oath(str(body.get("kind", "")), body)
+                    notes = ["saved"]
+                elif path == "/api/crew/test":
+                    return self._send(200, crew_test(str(body.get("agent", "")), str(body.get("text", ""))))
+                elif path == "/api/lobes/stats/reset":
+                    lobes.reset_stats()
+                    notes = ["vote stats cleared"]
+                else:
+                    return self._send(404, {"error": "not found"})
+            except settings_mod.SettingError as e:
+                return self._send(400, {"error": str(e)})
+            return self._send(200, {**settings_payload(), "notes": notes, "state": app_state(SESSION)})
 
     # -------------------------------------------------- actions
     def chat(self, body):
@@ -849,6 +918,9 @@ def main():
     args = ap.parse_args()
 
     SESSION = make_session("local" if args.local else None)
+    for key, hook in IMAGE_HOOKS.items():   # image engine addresses from Settings
+        if SESSION.config.get(key):
+            hook(SESSION.config[key])
     PORT = free_port(args.port or 47110)
     server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     url = f"http://127.0.0.1:{PORT}/"

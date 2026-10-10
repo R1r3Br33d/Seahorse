@@ -17,14 +17,13 @@ mysticism is only mood, easing off when it matters) are shown but can't be
 removed; your persona's own rules sit on top of them.
 """
 
-import json
 import re
 from copy import deepcopy
 
 import ui
 from personality import (BLANK_CHARACTER, CORE_CHARACTER_RULES, DEFAULT_CHARACTER, STRENGTH, delete_persona,
                          list_personas, load_persona, save_persona)
-from ui import BOLD, DIM, RESET
+from ui import DIM, RESET
 
 STEPS = ["identity", "backstory", "tale", "voice", "strength", "mannerisms", "spirit", "rules", "greetings",
          "traits", "preview"]
@@ -135,7 +134,7 @@ class Builder:
     # ------------------------------------------------------------------ steps
     def identity(self, i):
         header(i, "identity", "What he's called. The name shows in greetings and his instructions; the epithet is "
-                              "the name he earned (e.g. 'the Lonesome Grim').")
+                              "the name he earned (e.g. 'the Seahorse').")
         show("name   ", self.c.get("name"))
         show("epithet", self.c.get("epithet"))
         name = ask("name (Enter to keep):")
@@ -331,6 +330,13 @@ class Builder:
 
 def build_command(session, arg):
     arg = arg.strip().lower()
+    if arg.startswith("crew"):
+        rest = arg[4:].strip().split()
+        if not rest:
+            ui.note("which agent? e.g. /build crew broca (/crew lists them)")
+            return
+        build_crew_command(session, " ".join(rest))
+        return
     if arg and arg not in STEPS:
         ui.note(f"steps: {', '.join(STEPS)}")
         return
@@ -356,7 +362,7 @@ def persona_command(session, arg):
     elif sub == "save" and name:
         ui.note(f"saved {save_persona(name, current)}")
     elif sub == "delete" and name:
-        ui.note("deleted" if delete_persona(name) else "can't delete that one (missing, or the built-in Grim)")
+        ui.note("deleted" if delete_persona(name) else "can't delete that one (missing, or the built-in Seahorse)")
     elif sub == "new":
         ui.note("starting from a blank persona (your current one is untouched unless you save)")
         Builder(session, BLANK_CHARACTER).run()
@@ -367,4 +373,109 @@ def persona_command(session, arg):
             mark = f" {ui.CORAL}← playing now{RESET}" if same else ""
             print(f"  {ui.SAND}{slug:<18}{RESET} {title}{mark}")
         ui.note("/persona use <name> · /persona save <name> · /persona delete <name> · /persona new · /build")
+    print()
+
+
+# ---------------------------------------------------------------------------
+# The crew: the same 11 steps for each agent's character (see crew.py)
+# ---------------------------------------------------------------------------
+class CrewBuilder(Builder):
+    """Builds one crew member. Same steps and controls as the captain's builder."""
+
+    def __init__(self, session, agent):
+        import crew
+        self.crew = crew
+        self.agent = agent
+        super().__init__(session, crew.get(agent.name))
+        self.c.setdefault("post", "")
+        self.c.setdefault("traits", ", ".join(f"{t} {v:+.2f}" for t, v in agent.traits.items()))
+
+    def identity(self, i):
+        header(i, "identity", f"Who answers as @{self.agent.name}: their name, epithet and post aboard.")
+        for key in ("name", "epithet", "post"):
+            show(f"{key:<7}", self.c.get(key))
+            val = ask(f"{key} (Enter to keep):")
+            if val:
+                self.c[key] = val
+        sign, motto = self.crew.seal(self.c)
+        show("seal   ", self.crew.stamp(self.c) or "(none)")
+        new_sign = ask("seal sign - one symbol, e.g. ✒ ⚓ ☤ (Enter to keep):")
+        new_motto = ask("seal motto - a few words (Enter to keep):")
+        if new_sign or new_motto:
+            self.c["seal"] = {"sign": (new_sign or sign)[:2], "motto": (new_motto or motto)[:40].upper()}
+
+    def strength(self, i):
+        header(i, "strength", "How strongly their voice comes through. 'captain' follows the captain's setting.")
+        for name in self.crew.STRENGTHS:
+            desc = STRENGTH.get(name, "the same as the captain")
+            mark = f" {ui.CORAL}← now{RESET}" if name == self.c.get("strength", "captain") else ""
+            print(f"    {ui.TEAL}{name:<8}{RESET} {DIM}{desc}{RESET}{mark}")
+        choice = ask("captain / light / medium / strong (Enter to keep):")
+        if choice in self.crew.STRENGTHS:
+            self.c["strength"] = choice
+
+    def greetings(self, i):
+        header(i, "greetings", "How they open and close when they take the helm.")
+        self.c["greetings"] = edit_list("greetings", self.c.get("greetings", []))
+        self.c["farewells"] = edit_list("farewells", self.c.get("farewells", []))
+
+    def traits(self, i):
+        header(i, "traits", f"The personality traits @{self.agent.name} leans on while answering, as offsets from "
+                            "Seahorse's own (-0.4 to +0.4), e.g. 'rigor +0.2, warmth -0.1'.")
+        show("now:", self.c.get("traits"))
+        text = ask("traits (Enter to keep):")
+        if text:
+            from agents import parse_traits
+            parsed = parse_traits(text)
+            known = {n: v for n, v in parsed.items() if self.persona.find_trait(n)}
+            if known:
+                self.c["traits"] = ", ".join(f"{n} {v:+.2f}" for n, v in known.items())
+                print(f"    {DIM}{self.c['traits']}{RESET}")
+
+    def _lines(self):
+        return self.crew.prompt(self.c, self.persona.character, CORE_CHARACTER_RULES, STRENGTH) or []
+
+    def preview(self, i):
+        header(i, "preview", f"This is how @{self.agent.name} will be told who they are.")
+        for line in "\n".join(self._lines()).strip().splitlines():
+            print(f"  {DIM}{line}{RESET}")
+        print(f"\n  {ui.SAND}greeting{RESET}  {self.crew.greeting(self.c)}")
+        print(f"  {ui.SAND}seal{RESET}      {self.crew.stamp(self.c)}")
+        while True:
+            choice = ask("t test them · s save · q leave without saving:")
+            if choice == "t":
+                self.test()
+            elif choice == "s":
+                self.save()
+                return True
+
+    def test(self):
+        system = self.persona.system_prompt(self.session.extra, self.agent.traits, self._lines())
+        system += "\n\n" + self.agent.role_prompt()
+        line = ask("say something to them (Enter for 'Who are you?'):") or "Who are you?"
+        reply = self.session.complete(line, system=system, label=f"{self.c.get('name')} is thinking")
+        print(f"\n  {ui.FOAM}{reply or '(no model reachable for a test)'}{RESET}\n")
+
+    def save(self, preset=""):
+        self.crew.save(self.agent.name, self.c)
+        if self.c.get("traits"):
+            from agents import parse_traits
+            self.agent.traits = parse_traits(self.c["traits"])
+        ui.note(f"{self.c.get('name')} saved - they'll answer as @{self.agent.name} from your next message")
+
+
+def build_crew_command(session, arg):
+    parts = arg.split(None, 1)
+    agent = session.agents.get(parts[0]) if parts else None
+    if not agent:
+        ui.note("which agent? e.g. /build crew broca (/crew lists them)")
+        return
+    if agent.name == "hippocampus":
+        ui.note("the hippocampus is the captain himself - use /build")
+        return
+    only = parts[1].strip().lower() if len(parts) > 1 else None
+    if only and only not in STEPS:
+        ui.note(f"steps: {', '.join(STEPS)}")
+        return
+    CrewBuilder(session, agent).run(only)
     print()

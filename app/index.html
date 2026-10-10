@@ -6,6 +6,7 @@
 <meta name="seahorse-token" content="__SEAHORSE_TOKEN__">
 <title>Seahorse</title>
 <link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/settings.css">
 </head>
 <body>
 <header class="topbar">
@@ -14,6 +15,7 @@
     <button class="tab active" data-view="launcher" role="tab">Launcher</button>
     <button class="tab" data-view="chat" role="tab">Chat</button>
     <button class="tab" data-view="images" role="tab">Images</button>
+    <button class="tab" data-view="settings" role="tab">Settings</button>
   </nav>
   <div class="status-pill" id="modePill">starting…</div>
 </header>
@@ -123,9 +125,25 @@
       <div class="gallery" id="gallery"></div>
     </div>
   </section>
+
+  <!-- ============================== SETTINGS ============================== -->
+  <section class="view" id="view-settings">
+    <div class="settings">
+      <aside class="set-nav">
+        <label class="set-search"><span aria-hidden="true">⌕</span>
+          <input id="setSearch" type="search" placeholder="Find a setting" autocomplete="off"></label>
+        <ul id="setNav"></ul>
+        <p class="muted tiny set-saved" id="setSaved" aria-live="polite"></p>
+      </aside>
+      <div class="set-main" id="setMain">
+        <div class="empty"><span class="big-mark trident">Ψ</span><p>Loading settings…</p></div>
+      </div>
+    </div>
+  </section>
 </main>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="/app.js"></script>
+<script src="/settings.js"></script>
 </body>
 </html>

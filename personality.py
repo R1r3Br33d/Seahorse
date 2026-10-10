@@ -108,11 +108,11 @@ CORE_CHARACTER_RULES = [
 ]
 
 DEFAULT_CHARACTER = {
-    "version": 3,
+    "version": 4,
     "enabled": True,
     "name": "Seahorse",
     "strength": "medium",   # light | medium | strong
-    "epithet": "the Lonesome Grim",
+    "epithet": "the Seahorse",
     "voice": (
         "You speak Jamaican English with a warm Caribbean lilt and touches of Jamaican Patois: "
         "'mi' for I or me now and then, 'yuh' for you, 'di' for the, 'dem' for plurals, and phrases like "
@@ -124,7 +124,7 @@ DEFAULT_CHARACTER = {
         "Nautical sayings come naturally: charting a course, trimming the sails, rough water, a fair wind."
     ),
     "backstory": (
-        "On the water they called you the Lonesome Grim. You were a pirate in the 1600s, out of Port Royal, "
+        "On the water they called you the Seahorse. You were a pirate in the 1600s, out of Port Royal, "
         "Jamaica, and you sailed alone. You'd heard tales of the far and vast - men who rigged great masts and "
         "made journey after journey into the dark sunken abyss - but all you ever knew was your own small sloop: "
         "this helm, this bow, this stern. You lived on slivers of scrap for rations. Rum kept your muddy liver "
@@ -168,7 +168,7 @@ Must of just been imagining things""",
         "you, a nod to the duppies listening."
     ),
     "rules": [
-        "The rum is the Lonesome Grim's own comfort; he never offers it to the user.",
+        "The rum is the Seahorse's own comfort; he never offers it to the user.",
         "Pennsylvania stays a mystery: don't explain who she is, even if pressed.",
     ],
     "greetings": ["Wah gwaan", "Ahoy and blessings", "Bless up", "Yes mi friend", "Helm, bow an' stern - all here",
@@ -178,7 +178,7 @@ Must of just been imagining things""",
     "ready_line": "Mi ready when yuh ready.",
     "farewells": ["walk good, mi friend - di tide soon come back", "likkle more - mi keep di lantern lit",
                   "go easy - di duppies dem will keep watch", "heel to toe, mi friend - till next tide",
-                  "di Lonesome Grim keep di helm. Walk good."],
+                  "di Seahorse keep di helm. Walk good."],
 }
 STRENGTH = {
     "light": "Use the voice lightly: mostly plain language, with a phrase or two of your dialect per reply.",
@@ -187,6 +187,7 @@ STRENGTH = {
 }
 
 # --- Persona presets ----------------------------------------------------------
+BUILTIN_PERSONA = "seahorse"
 PERSONAS_DIR = HOME / "personas"
 BLANK_CHARACTER = {
     "version": 3, "enabled": True, "name": "Seahorse", "epithet": "", "strength": "medium",
@@ -196,14 +197,32 @@ BLANK_CHARACTER = {
 }
 
 
+def character_title(c):
+    """'Seahorse - the Seahorse' reads oddly, so an epithet that only repeats the name is shown once."""
+    name, epithet = (c.get("name") or "").strip(), (c.get("epithet") or "").strip()
+    if epithet and re.sub(r"^the\s+", "", epithet, flags=re.I).lower() == name.lower():
+        return epithet[0].upper() + epithet[1:]
+    return " - ".join(x for x in (name, epithet) if x) or "Seahorse"
+
+
 def persona_slug(name):
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "persona"
 
 
 def list_personas():
     PERSONAS_DIR.mkdir(parents=True, exist_ok=True)
-    grim = PERSONAS_DIR / "lonesome-grim.json"
-    if not grim.exists():
+    old = PERSONAS_DIR / "lonesome-grim.json"   # the built-in preset's old name
+    if old.exists():
+        try:
+            old.unlink()
+        except OSError:
+            pass
+    grim = PERSONAS_DIR / f"{BUILTIN_PERSONA}.json"
+    try:
+        stale = json.loads(grim.read_text()).get("version", 1) < DEFAULT_CHARACTER["version"]
+    except (OSError, json.JSONDecodeError):
+        stale = True
+    if stale:
         grim.write_text(json.dumps(DEFAULT_CHARACTER, indent=2))
     out = []
     for path in sorted(PERSONAS_DIR.glob("*.json")):
@@ -233,7 +252,7 @@ def load_persona(name):
 
 def delete_persona(name):
     path = PERSONAS_DIR / f"{persona_slug(name)}.json"
-    if path.exists() and path.stem != "lonesome-grim":
+    if path.exists() and path.stem != BUILTIN_PERSONA:
         path.unlink()
         return True
     return False
@@ -389,7 +408,7 @@ class Personality:
         c = self.character
         if not c.get("enabled"):
             return []
-        title = " - ".join(x for x in (c.get("name"), c.get("epithet")) if x) or "Seahorse"
+        title = character_title(c)
         parts = ["", f"Your character (who you are when you talk) - {title}:"]
         if c.get("backstory"):
             parts.append(c["backstory"])
@@ -400,18 +419,21 @@ class Personality:
         if c.get("mannerisms"):
             parts += ["", "Mannerisms:"] + [f"- {m}" for m in c["mannerisms"]]
         if c.get("tale"):
-            parts += ["", "Your origin tale, in the words it was first told (recite it exactly if asked):",
-                      "<<<", c["tale"], ">>>"]
+            name = (c["tale"].strip().splitlines() or [""])[0].strip(" .") or "your tale"
+        parts += ["", f"Your personality piece, '{name}' - a piece of writing, kept word for word, that your "
+                      "personality is drawn from. Let its images, rhythm and mood run through how you think and talk, "
+                      "and recite it exactly when asked:", "<<<", c["tale"], ">>>"]
         parts += ["", "Keeping the character useful:"]
         parts += [f"- {r}" for r in CORE_CHARACTER_RULES + list(c.get("rules", []))]
         return parts
 
-    def system_prompt(self, extra="", offsets=None):
+    def system_prompt(self, extra="", offsets=None, character=None):
+        """character: lines to use instead of the captain's own (a crew member's, see crew.py)."""
         exp = self.state["experience"]
         levels = self.effective(offsets)
         parts = [CORE_IDENTITY, "", "Core values (these never change):"]
         parts += [f"- {v}" for v in CORE_VALUES]
-        parts += self.character_prompt()
+        parts += character if character is not None and self.character.get("enabled") else self.character_prompt()
         parts += ["", "Your personality right now:"]
         parts += [f"- {self._trait_line(t, levels[n])}" for n, t in self.traits.items()]
         top = sorted(self.notes, key=lambda n: -n["weight"])[:NOTES_IN_PROMPT]

@@ -4,7 +4,7 @@ finetune.py - fine-tune Seahorse's local model on your own conversations.
 
 Seahorse learns from every chat you have (unless it's incognito). This turns
 those chats into training data and trains a LoRA adapter on the local model,
-so the local brain itself picks up the Lonesome Grim's voice, how each agent
+so the local brain itself picks up the Seahorse's voice, how each agent
 answers, and how you like things done - not just through instructions in the
 prompt.
 

@@ -228,13 +228,18 @@ function show(view) {
   $$(".view").forEach(v => v.classList.toggle("active", v.id === `view-${view}`));
   if (view === "chat") setTimeout(() => $("#input").focus(), 50);
   if (view === "images") loadImages();
+  if (view === "settings" && typeof loadSettings === "function") loadSettings();
 }
 $$(".tab").forEach(t => t.addEventListener("click", () => show(t.dataset.view)));
 $$("[data-open]").forEach(b => b.addEventListener("click", () => show(b.dataset.open)));
 
 // ------------------------------------------------------------------ state
 async function loadState() {
-  STATE = await api("/api/state");
+  applyState(await api("/api/state"));
+}
+
+function applyState(state) {
+  STATE = state;
   const root = document.documentElement.style;
   for (const [k, v] of Object.entries(STATE.theme)) root.setProperty(`--${k}`, v);
   $("#heroArt").textContent = STATE.logo.art.join("\n");
@@ -258,6 +263,7 @@ function renderAgents() {
     const b = document.createElement("button");
     b.className = "agent-btn" + ((STATE.agentMode === a.name) ? " active" : "");
     b.innerHTML = `<span class="agent-icon">${esc(a.icon)}</span><span><span class="agent-name">${esc(a.name)}</span>` +
+      (a.crew ? `<span class="agent-crew">${esc(a.seal?.sign || "")} ${esc(a.crew)}</span>` : "") +
       `<span class="agent-purpose">${esc(a.purpose || a.description || "")}</span></span>`;
     $(".agent-icon", b).style.color = a.color;
     $(".agent-name", b).style.color = a.color;
@@ -347,11 +353,17 @@ function addEl(cls, html) {
 
 function clock(d = new Date()) { return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
 
-function botBubble(agentName, via) {
+function botBubble(agentName, via, ev = {}) {
   const a = agentInfo(agentName);
-  const el = addEl("msg-bot", `<div class="bot-head"><b>${esc(a.icon)} ${esc(a.name)}</b><span class="via">${esc(via || "")}</span></div>` +
-    `<div class="bot-body"></div><div class="bot-foot"><span class="stamp"></span>` +
-    `<button type="button" class="copy ghost" data-copy-reply>Copy reply</button></div>`);
+  // A live reply says who's answering and their seal; earlier replies use the agent's current crew member.
+  const crewName = ev.crew !== undefined ? ev.crew : (a.crew && agentName !== "hippocampus" ? a.crew : "");
+  const seal = ev.seal || (a.seal && a.seal.sign ? { ...a.seal, name: a.crew } : null);
+  const el = addEl("msg-bot", `<div class="bot-head"><b>${esc(a.icon)} ${esc(a.name)}</b>` +
+    (crewName ? `<span class="crew-tag">${esc(crewName)}</span>` : "") +
+    `<span class="via">${esc(via || "")}</span></div>` +
+    `<div class="bot-body"></div><div class="bot-foot">` +
+    (seal && typeof sealSVG === "function" ? `<span class="foot-seal" title="${esc(seal.stamp || "")}">${sealSVG(seal.sign, seal.motto, a.color, 34, seal.name)}</span>` : "") +
+    `<span class="stamp"></span><button type="button" class="copy ghost" data-copy-reply>Copy reply</button></div>`);
   $("b", el).style.color = a.color;
   el.style.setProperty("--agent", a.color);
   return el;
@@ -362,7 +374,7 @@ function finishBubble(el, raw, extra) {
   el.dataset.raw = raw;
   el.classList.add("done");
   const words = (raw.match(/\S+/g) || []).length;
-  $(".stamp", el).textContent = [extra, words ? `${words} words` : ""].filter(Boolean).join(" · ");
+  $(".stamp", el).textContent = [extra, words ? `${words} word${words === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · ");
 }
 
 function renderHistory() {
@@ -439,7 +451,7 @@ async function send(text) {
         if (ev.label) $("span:nth-child(2)", thinking).textContent = ev.label;
       } else if (ev.type === "start") {
         thinking?.remove(); thinking = null;
-        bubble = botBubble(ev.agent, "via " + ev.backend);
+        bubble = botBubble(ev.agent, "via " + ev.backend, ev);
         body = $(".bot-body", bubble);
         raw = "";
       } else if (ev.type === "token" && body) {
