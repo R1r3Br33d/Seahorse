@@ -349,7 +349,8 @@ class Session:
     def system_for(self, agent, active_skills, query=""):
         if self.system_override:
             return self.system_override
-        parts = [self.persona.system_prompt(self.extra, agent.traits, self.crew_lines(agent))
+        latest = query or " ".join(self.user_texts()[-1:])
+        parts = [self.persona.system_prompt(self.extra, agent.traits, self.crew_lines(agent, latest))
                  if agent.persona else CORE_IDENTITY]
         if agent.persona and self.memory_on():
             parts.append(self.memory.context(query or " ".join(self.user_texts()[-2:])))
@@ -368,14 +369,14 @@ class Session:
             parts.append(self.skills.prompt(active_skills))
         return "\n\n".join(parts)
 
-    def crew_lines(self, agent):
+    def crew_lines(self, agent, query=""):
         """The crew member's character for this agent, or None to use the captain's."""
         if self.config.get("crew", True) is False:
             return None
         member = crew.get(agent.name)
         if member and member.get("captain"):   # the captain: his own character, plus the pledge and chant
-            return self.persona.character_prompt() + crew.oath_lines(captain=True)
-        return crew.prompt(member, self.persona.character, CORE_CHARACTER_RULES, STRENGTH)
+            return self.persona.character_prompt() + crew.oath_lines(captain=True, query=query)
+        return crew.prompt(member, self.persona.character, CORE_CHARACTER_RULES, STRENGTH, query)
 
     def seal_for(self, agent):
         """The crew member's notary seal for this agent's replies, or ''."""

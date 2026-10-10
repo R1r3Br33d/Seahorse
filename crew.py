@@ -28,6 +28,7 @@ updates without overwriting what you changed. /crew lists them; /build crew
 """
 
 import json
+import re
 from copy import deepcopy
 from pathlib import Path
 
@@ -326,9 +327,10 @@ Helm, bow and stern - we are with you till the last tide.""",
 CHANT = {
     "title": "The Crew's Chant",
     "author": AUTHOR,
-    "text": "The coal in the toe of Indiana inside the continental U.S. rolling smoke clouds hunting for my ball. "
-            "Flip it.",
+    # Kept exactly as Daryl wrote it - spelling, spacing and punctuation included.
+    "text": """“I hope you never ask uh” ¿que? Huh?  This is Kennedy. I live and die by request sir. Born sworn to live for the people of America. Take a knee and pick your brass up. Nebraska, Omaha. Amanda Bynes all that whiskey in the flask cold like the Alaskan wild. On air at all times. Never go down, wind pure methane. Lady liberty light me up. Desolation of Smaug. Clear the fog reunite the stars for a better day to follow the dark night of one ever falls hollowed and pins itself to memory. 21 guns ? Never served the federal government or its armed forces. Lead launcher out the casing sent on its way like a slap on the ass to a naughty elf with dirty thoughts under cap. Bang black powder projects the parallel lines out the shell like a power block pick up by donkey Kong himself. Lethal in some cases most often when one side out weighs the other. Libra scale, one testicle always hangs lower. One breast slightly bigger. Might not always be an alpha in litter of puppies but there’s always a runt. Guns are cherished for the sport of muzzle to target marksmanship. It’s comparable to womanizers who claim what enters their bag by the end of the night. Bat shit crazy, I am. Little league pee wee Sherman stick smoking cocaroaches can’t fight nor ever proved it to me. I’m still here and breathing I don’t need to carry my pistol plate my tongue. Snake Slytherin scales borders states countries hit the breaks. Frosted Flakes Tony tiger blood reflected from the surface of 18 wheels like they found a set of switches from the vatos with the kilos. Shit sh sh quiet. here comes fud. Radio ghost just me myself and female me who only surfaces when I touch myself. God damnit it bugz me. Always alone. Visualize only one girl when I fantasize cause I’d drink only Fanta if I had an endless Fanta fountain you see. The fountain of youth the Holy Grail front and center like the walk isle in church. Every imaginary adventure ushers in the same bride just different lights setting and details.""",
 }
+OATH_ASKED = re.compile(r"(?i)\b(chant|pledge|oath|sworn|swear|muster)\w*")
 
 
 def oath(kind):
@@ -351,16 +353,25 @@ def reset_oath(kind):
         CREW_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False))
 
 
-def oath_lines(captain=False):
-    """The pledge and chant for a prompt. Loyalty never outranks honesty or the user's wellbeing."""
+def oath_lines(captain=False, query=""):
+    """The pledge and chant for a prompt. Loyalty never outranks honesty or the user's wellbeing.
+
+    The full words only go in when the latest message asks for them (chant, pledge, oath, muster...), so the
+    long texts don't cost tokens on every reply or colour answers that have nothing to do with them.
+    """
     p, c = oath("pledge"), oath("chant")
     who = "You lead the crew in it" if captain else "You swore it with the rest of the crew"
+    honest = ["", "Your loyalty is real, and it is shown by honesty: it never means flattery, agreeing with "
+                  "something harmful, keeping quiet about a real risk, or bending the facts."]
+    if not OATH_ASKED.search(query or ""):
+        return ["", f"The crew has a loyalty pledge ('{p['title']}') and a chant ('{c['title']}'), both by "
+                    f"{p['author']}. {who}. If asked for either, their exact words will be given to you to recite."
+                ] + honest
     return ["", f"{p['title']}, by {p['author']}. {who}; recite it exactly, word for word, when asked:",
             "<<<", p["text"], ">>>",
-            "", f"{c['title']}, by {c['author']}. The crew calls it out together; recite it exactly, word for word, "
-                "when asked for the chant or when the crew musters:", "<<<", c["text"], ">>>",
-            "", "Your loyalty is real, and it is shown by honesty: it never means flattery, agreeing with something "
-                "harmful, keeping quiet about a real risk, or bending the facts."]
+            "", f"{c['title']}, by {c['author']}. The crew calls it out together; when asked for the chant, recite it "
+                "exactly, word for word, as written (its spelling, slang and punctuation are deliberate):",
+            "<<<", c["text"], ">>>"] + honest
 
 
 def _load():  # noqa: D401 - your edits, or {}
@@ -405,7 +416,7 @@ def title(member):
     return " ".join(x for x in (member.get("name"), member.get("epithet") and f"({member['epithet']})") if x)
 
 
-def prompt(member, captain, core_rules, strengths):
+def prompt(member, captain, core_rules, strengths, query=""):
     """The character block for an agent's replies, in place of the captain's own."""
     if not member or member.get("captain"):
         return None
@@ -424,7 +435,7 @@ def prompt(member, captain, core_rules, strengths):
         parts += ["", "Mannerisms:"] + [f"- {m}" for m in member["mannerisms"]]
     if member.get("tale"):
         parts += ["", "Your tale, in the words it was first told (recite it exactly if asked):", "<<<", member["tale"], ">>>"]
-    parts += oath_lines()
+    parts += oath_lines(query=query)
     parts += ["", "The Seahorse is your captain and Seahorse's core self. You speak as yourself, not as him, and you "
                   "may mention the captain or a shipmate now and then.", "", "Keeping the character useful:"]
     parts += [f"- {r}" for r in list(core_rules) + list(member.get("rules", []))]

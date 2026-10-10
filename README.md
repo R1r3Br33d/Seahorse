@@ -212,7 +212,7 @@ apply to all of them.
 
 **The loyalty pledge and the chant**, by Daryl James-Michael Kennedy, are kept
 word for word. Every crew member swore the pledge and the captain leads it;
-they recite either exactly when asked (`/crew pledge`, `/crew chant`). The
+they recite either exactly when asked (`/crew pledge`, `/crew chant`). The full words are only handed to the model when your message asks for them, so they cost nothing on other replies. The
 pledge makes loyalty mean honesty: it never means flattery, agreeing with
 something harmful, or keeping quiet about a real risk. Edit either in
 Settings → Crew.
