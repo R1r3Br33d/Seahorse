@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.DS_Store
+# personal data lives in ~/.seahorse, never in the repo
+.seahorse/
+*.db
+.env
