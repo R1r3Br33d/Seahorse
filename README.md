@@ -328,6 +328,11 @@ The crew is paid in pirate coin and the treasures of the sea.
   - **Processing power**: CPU cores, free memory, GPU (NVIDIA or Apple
     Silicon), the local context window, and which local models are loaded and
     whether they sit on the GPU or the CPU.
+  - **The compass is the NEWS**: north the bow, east starboard, south the
+    stern, west port, each point watched by its horseman. A lightning strike
+    is a magnetic pulse on the navigation instruments: a worker that couldn't
+    take a call. When the needle is thrown, Seahorse sails on by dead
+    reckoning and the next worker takes the call. `/compass` (or `/news`).
   - **Quarters are the four seasons**, three months each, and each is ridden
     by one of the four horsemen of the apocalypse: Winter (Dec-Feb) by Death
     on the pale horse, Spring (Mar-May) by Conquest on the white, Summer

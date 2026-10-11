@@ -1313,6 +1313,7 @@ HELP = f"""{BOLD}Commands{RESET}
                             10 shipwrecks per board, a full board is a black pearl (/laws works too)
   /budget                   the marlin is the people: your goals, direction, future - and what's in the budget
   /trident                  Poseidon's Trident, the working class: processing power and how the work is distributed
+  /compass                  the NEWS: the horsemen at each point, and lightning strikes on the instruments
   /quarters                 the four seasons and their horsemen: the treasury's books by quarter
   /pockets [words]          treasure pockets, the oil reserves (blood of the gods): ideas scrapped in past chats
   /locker                   Davy Jones' Locker: the core's pulse and the hourglass of the two hemispheres
@@ -2273,8 +2274,8 @@ def handle_command(session, line):
     elif cmd == "council":
         council_command(session, arg)
     elif cmd in ("treasury", "law", "laws", "wreck", "wrecks", "reef", "rcso", "budget", "dollar", "marlin", "goal",
-                 "goals", "trident", "trench", "undertow", "locker", "core", "davy", "pockets", "oil", "reserves", "quarters", "quarter", "seasons", "horsemen"):
-        cmd = {"quarter": "quarters", "seasons": "quarters", "horsemen": "quarters", "oil": "pockets", "reserves": "pockets", "core": "locker", "davy": "locker", "undertow": "trench", "wreck": "law", "wrecks": "laws", "reef": "laws", "rcso": "laws"}.get(cmd, cmd)
+                 "goals", "trident", "trench", "undertow", "locker", "core", "davy", "pockets", "oil", "reserves", "quarters", "quarter", "seasons", "horsemen", "compass", "news"):
+        cmd = {"news": "compass", "quarter": "quarters", "seasons": "quarters", "horsemen": "quarters", "oil": "pockets", "reserves": "pockets", "core": "locker", "davy": "locker", "undertow": "trench", "wreck": "law", "wrecks": "laws", "reef": "laws", "rcso": "laws"}.get(cmd, cmd)
         treasury_command(session, cmd, arg)
     elif cmd == "units":
         import units as U
@@ -2431,13 +2432,14 @@ def treasury_command(session, cmd, arg):
     if cmd == "pockets":
         print(treasury.pockets_text(HISTORY_DIR, arg.strip()))
         return print()
-    if cmd in ("trident", "trench", "locker"):
+    if cmd in ("trident", "trench", "locker", "compass"):
         workers = []
         for b in (session.claude, session.local):
             workers.append({"name": b.label(), "calls": b.calls, "chars": b.chars, "seconds": b.seconds,
                             "unavailable": b.unavailable})
-        if cmd in ("trench", "locker"):
-            print(treasury.trench_text(session.memory, workers) if cmd == "trench" else treasury.locker_text(workers))
+        if cmd in ("trench", "locker", "compass"):
+            print(treasury.trench_text(session.memory, workers) if cmd == "trench" else
+                  treasury.compass_text(workers) if cmd == "compass" else treasury.locker_text(workers))
             return print()
         power = processing_power(session.local)
         try:

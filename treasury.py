@@ -816,6 +816,35 @@ def trench_text(memory=None, workers=None):
                      + trench_lines(None, memory, workers))
 
 
+COMPASS = [("N", "north", "the bow"), ("E", "east", "starboard"), ("S", "south", "the stern"), ("W", "west", "port")]
+
+
+def compass_lines(workers=None, mode="auto"):
+    """The compass: the NEWS. North is the bow, east starboard, south the stern, west port - each point watched by
+    its horseman. A lightning strike is a magnetic pulse on the navigation instruments: a worker that couldn't take
+    a call. When the needle is struck, Seahorse sails by dead reckoning on the next worker instead."""
+    workers = workers or []
+    try:
+        import crew
+        at = {m["horseman"].get("station"): m["name"] for _q, (_a, m) in crew.horsemen().items()}
+    except Exception:  # noqa: BLE001
+        at = {}
+    strikes = sum(w.get("unavailable", 0) for w in workers)
+    points = " · ".join(f"{p} {at.get(st, st)}" for p, _n, st in COMPASS)
+    lines = ["  Compass - the NEWS: " + points]
+    if strikes:
+        lines.append(f"    ⚡ struck by lightning {strikes} time{'s' if strikes != 1 else ''} - the pulse threw the needle; "
+                     "Seahorse sailed on by dead reckoning (the next worker took the call)")
+    else:
+        lines.append("    needle steady - no lightning on the instruments this session")
+    return lines
+
+
+def compass_text(workers=None):
+    """/compass - the NEWS and the lightning on its own."""
+    return "\n".join(["  🧭 The compass", ""] + compass_lines(workers))
+
+
 def locker_lines(workers=None):
     """Davy Jones' Locker, the void at the centre of the earth. Mussels fed on the blood of electric eels grow
     there as wide as satellite dishes, so many that they shift between hemispheres like the sand in a giant
@@ -865,6 +894,7 @@ def trident_text(flow=None, memory=None, power=None, workers=None, order=None):
     lines.append("    loaded  " + (", ".join(loaded) if loaded else "no local model loaded right now"))
     lines += [""] + locker_lines(workers)
     lines += headroom_lines(power, flow)
+    lines += [""] + compass_lines(workers)
     lines += [""] + pocket_lines()[0]
     lines += ["", "  Currents - how the work is distributed:"]
     done = {w["name"]: max(0, w["calls"] - w.get("unavailable", 0)) for w in workers}
