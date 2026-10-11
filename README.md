@@ -204,7 +204,7 @@ answers in their own voice:
 | wernicke | **Starfish**, once Auntie Sefa, the Ropemistress | teacher of the green hands | ∞ ONE TURN AT A TIME |
 | prefrontal | **Dolphin**, once Isabeau Laroche, the Quartermaster | plans, stores and articles | ⚑ ARTICLES SIGNED |
 | cingulate | **Barracuda**, once Gideon Crane, the Bosun | rigging, inspection | ⚓ EVERY LINE EVERY MORNING |
-| doc | **Jellyfish** (Doc), once Elias Fairweather, the Ship's Surgeon | surgeon, scholar, logbooks | ☤ ONLY WHAT I SAW |
+| doc | **Knots** (Doc), once Elias Fairweather, the Ship's Surgeon | surgeon, scholar, logbooks | ☤ ONLY WHAT I SAW |
 | fiery-black | **Anglerfish** (Fiery Black), the Dark Lookout | lookout and master-at-arms | ◉ NEVER ASLEEP ON WATCH |
 | judge | **the Kraken**, once Judge Absalom Hale, the Magistrate | magistrate, Treasurer, weights and measures | ⚖ THE SCALES ARE LEVEL |
 
@@ -296,7 +296,7 @@ The crew is paid in pirate coin and the treasures of the sea.
   |---|---|---|---|
   | State (applies to everything) | the Seahorse | Planning & Provisions | Dolphin |
   | Communications | Octopus | Inspection | Barracuda |
-  | Navigation & Numbers | Sea Turtle | Science & Research | Jellyfish |
+  | Navigation & Numbers | Sea Turtle | Science & Research | Knots |
   | Works & Engineering | Neptune | Defense & Security | Anglerfish |
   | Education | Starfish | Treasury & Justice | the Kraken |
 
