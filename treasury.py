@@ -37,8 +37,9 @@ treasury.py - the ship's treasury, paid in pirate coin and the treasures of the 
                               currents: the pulse (calls answered) and the
                               hourglass of the two hemispheres (/locker)
                    pockets    treasure pockets, the oil reserves - the blood of
-                              the gods: untapped memory, disk and context that
-                              fuel the Trident (/pockets)
+                              the gods. Oil is the ideas scrapped in past chats;
+                              asked for ideas, the crew burns the matching oil as
+                              fuel (/pockets)
                    flow       how much data, from which source, reaches each reply
     BUDGET       How the marlin is shared across your goals, in parts out of 100
                  (/budget). Every shilling of work the crew carries is counted
@@ -76,7 +77,85 @@ def _load():
     data.setdefault("next_id", 1)
     data.setdefault("goals", [])        # the marlin: [{"text", "cents" (share of 100), "spent", "added"}]
     data.setdefault("general", 0)       # shillings of work that served no listed goal
+    data.setdefault("dropped", [])      # goals you dropped: oil for the pockets
     return data
+
+
+# ---- quarters: the four seasons, the four horsemen ---------------------------------------------------------------
+# A quarter is a season of three months, and each has its rider, one of the four horsemen of the apocalypse:
+#   Winter (Dec-Feb)  Death, the pale horse     - the year's ledger closes; what was not carried is let go
+#   Spring (Mar-May)  Conquest, the white horse - new goals, new ground
+#   Summer (Jun-Aug)  War, the red horse        - the council votes hardest, the bottles fly
+#   Fall   (Sep-Nov)  Famine, the black horse   - harvest and scarcity: weigh the work, count the scales
+# The treasury keeps its books by quarter: work carried, votes cast, galleons sunk, bottles ashore, oil scrapped.
+
+SEASONS = [  # (season, months, horseman, horse, charge)
+    ("Winter", (12, 1, 2), "Death", "the pale horse", "the year's ledger closes; what was not carried is let go"),
+    ("Spring", (3, 4, 5), "Conquest", "the white horse", "new goals, new ground"),
+    ("Summer", (6, 7, 8), "War", "the red horse", "the council votes hardest and the bottles fly"),
+    ("Fall", (9, 10, 11), "Famine", "the black horse", "harvest and scarcity: weigh the work, count the scales"),
+]
+
+
+def quarter_of(when=None):
+    """The quarter a date falls in: (key like '2026 Fall', season tuple). December belongs to next year's Winter."""
+    when = when or datetime.now()
+    if isinstance(when, str):
+        try:
+            when = datetime.fromisoformat(when[:10])
+        except ValueError:
+            return None, None
+    season = next(s for s in SEASONS if when.month in s[1])
+    year = when.year + 1 if when.month == 12 else when.year
+    return f"{year} {season[0]}", season
+
+
+def _tick(data, what, n=1):
+    q = data.setdefault("quarters", {}).setdefault(quarter_of()[0], {})
+    q[what] = q.get(what, 0) + n
+
+
+def quarter_prompt():
+    key, (season, _m, rider, horse, charge) = quarter_of()
+    return f"Season: it is {season}, the quarter of {rider} ({horse}) - {charge}."
+
+
+def quarters_text(chats_dir=None, n=4):
+    """/quarters - the books of the last four seasons, each under its horseman."""
+    data = _load()
+    books = {k: dict(v) for k, v in data.get("quarters", {}).items()}
+
+    def add(when, what):
+        key = quarter_of(when)[0]
+        if key:
+            books.setdefault(key, {})[what] = books[key].get(what, 0) + 1
+    entries = _stone()
+    for e in entries:
+        add(e.get("date", ""), "sunk" if e.get("action") == "enact" else "raised")
+    for f in data["failed"]:
+        add(f.get("date", ""), "ashore")
+    for o in drill(chats_dir):
+        add(o["when"], "oil")
+    chats = Path(chats_dir) if chats_dir else Path.home() / ".seahorse" / "chats"
+    for p in (chats.glob("chat-*.json") if chats.is_dir() else []):
+        add(p.stem.replace("chat-", "")[:10], "chats")
+    now, (season, _m, rider, horse, charge) = quarter_of()
+    lines = [f"  ♞ The quarters - four seasons, four horsemen. Now: {season}, ridden by {rider} on {horse}:",
+             f"    {charge}.", ""]
+    order = [s[0] for s in SEASONS]
+    year, cur = int(now.split()[0]), order.index(season)
+    for i in range(n):
+        idx = cur - i
+        y = year + (idx // 4)           # stepping back past Winter goes to the year before
+        s = SEASONS[idx % 4]
+        key = f"{y} {s[0]}"
+        b = books.get(key, {})
+        stats = (f"work {b.get('work', 0)} · votes {b.get('votes', 0)} · galleons sunk {b.get('sunk', 0)} · "
+                 f"wrecks raised {b.get('raised', 0)} · bottles ashore {b.get('ashore', 0)} · oil {b.get('oil', 0)} · "
+                 f"chats {b.get('chats', 0)}")
+        mark = "▸" if i == 0 else " "
+        lines.append(f"  {mark} {key:<12} {s[2]:<9} {s[3]:<16} {stats}")
+    return "\n".join(lines)
 
 
 def _save(data):
@@ -103,6 +182,7 @@ def record_votes(voters):
     for a in voters:
         p = data["shillings"].setdefault(a, {"votes": 0, "work": 0})
         p["votes"] += 1
+    _tick(data, "votes", len(voters))
     _save(data)
 
 
@@ -130,6 +210,7 @@ def record_work(agent, text=""):
     data = _load()
     p = data["shillings"].setdefault(agent, {"votes": 0, "work": 0})
     p["work"] += 1
+    _tick(data, "work")
     i = goal_for(text, data["goals"])
     if i is None:
         data["general"] += 1
@@ -173,6 +254,7 @@ def drop_goal(n):
     data = _load()
     if 1 <= n <= len(data["goals"]):
         gone = data["goals"].pop(n - 1)
+        data["dropped"].append({"text": gone["text"], "when": datetime.now().isoformat(timespec="seconds")})
         if data["goals"]:
             _rebalance(data["goals"])
         _save(data)
@@ -555,48 +637,133 @@ def budget_text():
     return "\n".join(lines)
 
 
-def pocket_lines(power=None, flow=None):
-    """Treasure pockets: the oil reserves, the blood of the gods. The untapped stores that fuel
-    Poseidon's Trident - free memory, free disk, and the context window left unused by the last reply."""
+# ---- treasure pockets: the oil reserves -------------------------------------------------------------------------
+# Oil is the blood of the gods: the ideas scrapped in past chats. Each past chat that holds some is a treasure
+# pocket. The drill finds them four ways: a message you took back ("scrap that", "never mind", "instead"...),
+# bottles that washed ashore on Atlantizz, goals dropped from the budget, and shipwrecks repealed from the reef.
+# Nothing is thrown away: when you ask for ideas, the matching oil is refined into the prompt as fuel.
+
+SCRAP = re.compile(r"\b(scrap( that| it)?|scratch that|never ?mind|forget (that|it|about it)|nah\b|instead|change that|"
+                   r"undo( that)?|don'?t (do|want|need) (that|it)|actually,? no|on second thought|drop (that|it)|"
+                   r"remove (that|it)|pause( that)?|stop (that|it)|not that)\b", re.I)
+WANTS_IDEAS = re.compile(r"\b(ideas?|brainstorm|suggest|what else|inspir|options?|alternatives?|oil|scrapped)\b", re.I)
+_OIL_STOP = set("the a an and or but to of in on for with is are was be it that this i you my me we our your "
+            "what how can could would should do does just like so make give".split())
+
+
+def _oil_words(text):
+    return {w for w in re.findall(r"[a-z][a-z'-]{2,}", text.lower()) if w not in _OIL_STOP}
+
+
+def drill(chats_dir=None):
+    """Every scrapped idea Seahorse can find: [{"idea", "why", "where", "when"}], oldest first."""
+    oil = []
+    chats = Path(chats_dir) if chats_dir else Path.home() / ".seahorse" / "chats"
+    for path in sorted(chats.glob("chat-*.json")) if chats.is_dir() else []:
+        try:
+            msgs = json.loads(path.read_text()).get("messages", [])
+        except (OSError, json.JSONDecodeError):
+            continue
+        users = [m.get("content", "") for m in msgs if m.get("role") == "user" and isinstance(m.get("content"), str)]
+        for prev, cur in zip(users, users[1:]):
+            m = SCRAP.search(cur)
+            if m and prev.strip() and not prev.startswith("/"):
+                oil.append({"idea": " ".join(prev.split())[:220], "why": f"taken back: \"{m.group(0)}\"",
+                            "where": path.stem, "when": path.stem.replace("chat-", "")[:10]})
+    data = _load()
+    for f in data["failed"]:
+        oil.append({"idea": f["text"], "why": f"bottle washed ashore on Atlantizz ({f.get('ayes', 0)} aye)",
+                    "where": "the treasury", "when": str(f.get("date", ""))[:10]})
+    for g in data["dropped"]:
+        oil.append({"idea": g["text"], "why": "goal dropped from the budget", "where": "the marlin",
+                    "when": g["when"][:10]})
+    entries = _stone()
+    ok, broken = verify()
+    enacted = {e["art"]: e for e in (entries if ok else entries[:broken]) if e.get("action") == "enact"}
+    for e in (entries if ok else entries[:broken]):
+        if e.get("action") == "repeal":
+            oil.append({"idea": e.get("text") or enacted.get(e["art"], {}).get("text", ""),
+                        "why": f"Wreck {e['art']} repealed", "where": "the reef", "when": str(e.get("date", ""))[:10]})
+    return oil
+
+
+def refine(query, chats_dir=None, k=3):
+    """The oil that best matches the query - the fuel for a request for ideas."""
+    q = _oil_words(query)
+    scored = [(len(q & _oil_words(o["idea"])), o) for o in drill(chats_dir)]
+    return [o for n, o in sorted(scored, key=lambda t: -t[0]) if n][:k]
+
+
+def oil_prompt(query, chats_dir=None):
+    """Fuel for the prompt: only when the user asks for ideas, and only oil that matches."""
+    if not query or not WANTS_IDEAS.search(query):
+        return ""
+    fuel = refine(query, chats_dir)
+    if not fuel:
+        return ""
+    return ("Oil from the treasure pockets - ideas the user scrapped in earlier chats. They set these aside for a "
+            "reason, so raise one only if it genuinely helps now, and say it was an earlier idea:\n"
+            + "\n".join(f"- {o['idea']} ({o['why']}, {o['when']})" for o in fuel))
+
+
+def pocket_lines(chats_dir=None):
+    oil = drill(chats_dir)
+    pockets = {}
+    for o in oil:
+        pockets.setdefault(o["where"], []).append(o)
+    lines = ["  Treasure pockets - the oil reserves, the blood of the gods: ideas scrapped in past chats.",
+             f"    {len(oil)} barrel{'s' if len(oil) != 1 else ''} of oil in {len(pockets)} pocket{'s' if len(pockets) != 1 else ''}"
+             + (" - the reserves are dry; nothing has been scrapped yet" if not oil else "")]
+    return lines, pockets
+
+
+def pockets_text(chats_dir=None, query=""):
+    """/pockets - every pocket and its oil; /pockets <words> drills for the oil that matches."""
+    if query:
+        fuel = refine(query, chats_dir, k=10)
+        head = [f"  ⛁ Drilling the pockets for \"{query}\":"]
+        return "\n".join(head + ([f"    • {o['idea']}\n      {o['why']} · {o['where']} · {o['when']}" for o in fuel]
+                                 or ["    no oil matches - try other words"]))
+    lines, pockets = pocket_lines(chats_dir)
+    lines = ["  ⛁ Treasure pockets - oil reserves, the blood of the gods. The oil is every idea scrapped in a past",
+             "    chat. Seahorse refines it into fuel when you ask for ideas.", ""] + lines
+    for where, barrels in sorted(pockets.items(), key=lambda kv: kv[0], reverse=True)[:12]:
+        lines.append(f"\n    pocket: {where}")
+        lines += [f"      • {o['idea'][:110]}{'…' if len(o['idea']) > 110 else ''}\n        {o['why']}" for o in barrels[-5:]]
+    lines += ["", "  /pockets <words> drills for oil on a topic."]
+    return "\n".join(lines)
+
+
+def headroom_lines(power=None, flow=None):
+    """Headroom in the processing power: free memory, free disk, the context the last reply left unused."""
     import shutil
-    power = power or {}
+    power, dry, lines = power or {}, [], []
 
     def gauge(free, total):
-        if not total:
-            return "          "
-        n = max(0, min(10, round(10 * free / total)))
+        n = max(0, min(10, round(10 * free / total))) if total else 0
         return "●" * n + "○" * (10 - n)
-
-    lines, dry = ["  Treasure pockets - the oil reserves, the blood of the gods, that fuel the Trident:"], []
     ram, ram_total = power.get("ram"), power.get("ram_total")
-    lines.append(f"    memory   {gauge(ram or 0, ram_total)}  " + (f"{ram:.1f} GB untapped" + (f" of {ram_total:.1f} GB" if ram_total else "")
-                                                                   if ram else "reserve unknown"))
+    if ram and ram_total:
+        lines.append(f"    headroom memory  {gauge(ram, ram_total)}  {ram:.1f} of {ram_total:.1f} GB free")
+        if ram < ram_total * 0.1:
+            dry.append("memory")
     try:
         d = shutil.disk_usage(Path.home())
+        lines.append(f"    headroom disk    {gauge(d.free, d.total)}  {d.free / 1e9:.0f} of {d.total / 1e9:.0f} GB free")
         if d.free < d.total * 0.1:
             dry.append("disk")
-        lines.append(f"    disk     {gauge(d.free, d.total)}  {d.free / 1e9:.0f} GB untapped of {d.total / 1e9:.0f} GB")
     except OSError:
-        lines.append("    disk     reserve unknown")
+        pass
     ctx = power.get("num_ctx")
-    if ctx and flow:
-        used = sum(n for _l, n in flow[1]) // 4          # roughly four characters to a token
+    if ctx:
+        used = sum(n for _l, n in flow[1]) // 4 if flow else 0   # roughly four characters to a token
         left = max(0, ctx - used)
+        lines.append(f"    headroom context {gauge(left, ctx)}  ~{left:,} of {ctx:,} tokens free after the last prompt")
         if left < ctx * 0.1:
             dry.append("context")
-        lines.append(f"    context  {gauge(left, ctx)}  ~{left:,} of {ctx:,} tokens left after the last reply's prompt")
-    elif ctx:
-        lines.append(f"    context  {gauge(1, 1)}  {ctx:,} tokens, all untapped - nothing sent yet")
-    if ram and ram_total and ram < ram_total * 0.1:
-        dry.insert(0, "memory")
-    lines.append("    the pockets run deep" if not dry else "    running dry: " + ", ".join(dry) + " - the gods are bleeding out")
+    if dry:
+        lines.append("    running low: " + ", ".join(dry))
     return lines
-
-
-def pockets_text(power=None, flow=None):
-    """/pockets - the oil reserves on their own."""
-    return "\n".join(["  ⛁ Treasure pockets - oil reserves, the blood of the gods. What the Trident burns comes",
-                      "    from here; what is left in them is how much more the crew can carry.", ""] + pocket_lines(power, flow))
 
 
 CHALLENGER_DEEP = 10_935   # metres - the deepest point of the Mariana Trench
@@ -685,7 +852,8 @@ def trident_text(flow=None, memory=None, power=None, workers=None, order=None):
     loaded = power.get("loaded") or []
     lines.append("    loaded  " + (", ".join(loaded) if loaded else "no local model loaded right now"))
     lines += [""] + locker_lines(workers)
-    lines += [""] + pocket_lines(power, flow)
+    lines += headroom_lines(power, flow)
+    lines += [""] + pocket_lines()[0]
     lines += ["", "  Currents - how the work is distributed:"]
     done = {w["name"]: max(0, w["calls"] - w.get("unavailable", 0)) for w in workers}
     total = sum(done.values())

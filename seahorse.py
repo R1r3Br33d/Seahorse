@@ -421,6 +421,8 @@ class Session:
         if agent.persona:
             flow.append(("constitution (amendments)", treasury.constitution_prompt(agent.name, latest, self.agents)))
             flow.append(("the marlin (your goals)", treasury.marlin_prompt()))
+            flow.append(("the quarter (season)", treasury.quarter_prompt()))
+            flow.append(("oil (scrapped ideas)", treasury.oil_prompt(latest, HISTORY_DIR)))
         if self.skills.prompt(active_skills):
             flow.append(("skills", self.skills.prompt(active_skills)))
         flow = [(label, text) for label, text in flow if text]
@@ -1311,7 +1313,8 @@ HELP = f"""{BOLD}Commands{RESET}
                             10 shipwrecks per board, a full board is a black pearl (/laws works too)
   /budget                   the marlin is the people: your goals, direction, future - and what's in the budget
   /trident                  Poseidon's Trident, the working class: processing power and how the work is distributed
-  /pockets                  treasure pockets, the oil reserves (blood of the gods): untapped memory, disk, context
+  /quarters                 the four seasons and their horsemen: the treasury's books by quarter
+  /pockets [words]          treasure pockets, the oil reserves (blood of the gods): ideas scrapped in past chats
   /locker                   Davy Jones' Locker: the core's pulse and the hourglass of the two hemispheres
   /trench                   the Mariana Trench: the undertow, everything held back and how deep it has sunk
   /budget add <goal> · set <n> <share> · drop <n>   share the marlin (100 parts) across your goals
@@ -2270,8 +2273,8 @@ def handle_command(session, line):
     elif cmd == "council":
         council_command(session, arg)
     elif cmd in ("treasury", "law", "laws", "wreck", "wrecks", "reef", "rcso", "budget", "dollar", "marlin", "goal",
-                 "goals", "trident", "trench", "undertow", "locker", "core", "davy", "pockets", "oil", "reserves"):
-        cmd = {"oil": "pockets", "reserves": "pockets", "core": "locker", "davy": "locker", "undertow": "trench", "wreck": "law", "wrecks": "laws", "reef": "laws", "rcso": "laws"}.get(cmd, cmd)
+                 "goals", "trident", "trench", "undertow", "locker", "core", "davy", "pockets", "oil", "reserves", "quarters", "quarter", "seasons", "horsemen"):
+        cmd = {"quarter": "quarters", "seasons": "quarters", "horsemen": "quarters", "oil": "pockets", "reserves": "pockets", "core": "locker", "davy": "locker", "undertow": "trench", "wreck": "law", "wrecks": "laws", "reef": "laws", "rcso": "laws"}.get(cmd, cmd)
         treasury_command(session, cmd, arg)
     elif cmd == "units":
         import units as U
@@ -2422,7 +2425,13 @@ def treasury_command(session, cmd, arg):
     order = council.seating(session.agents.agents, cfg.get("council_seats"))
     threshold = int(cfg.get("law_threshold", treasury.DEFAULTS["law_threshold"]))
     words = arg.split()
-    if cmd in ("trident", "trench", "locker", "pockets"):
+    if cmd == "quarters":
+        print(treasury.quarters_text(HISTORY_DIR))
+        return print()
+    if cmd == "pockets":
+        print(treasury.pockets_text(HISTORY_DIR, arg.strip()))
+        return print()
+    if cmd in ("trident", "trench", "locker"):
         workers = []
         for b in (session.claude, session.local):
             workers.append({"name": b.label(), "calls": b.calls, "chars": b.chars, "seconds": b.seconds,
@@ -2436,9 +2445,6 @@ def treasury_command(session, cmd, arg):
         except (ValueError, OSError, AttributeError):
             power["ram_total"] = None
         power["num_ctx"] = session.local.num_ctx
-        if cmd == "pockets":
-            print(treasury.pockets_text(power, getattr(session, "last_flow", None)))
-            return print()
         power["context"] = f"{session.local.num_ctx:,} tokens" + ("" if session.local.fixed_ctx else " (auto-sized)")
         power["parallel"] = session.config.get("lobe_parallel", True) is not False
         print(treasury.trident_text(getattr(session, "last_flow", None), session.memory, power, workers,

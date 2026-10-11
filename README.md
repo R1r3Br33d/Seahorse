@@ -317,10 +317,22 @@ The crew is paid in pirate coin and the treasures of the sea.
   - **Processing power**: CPU cores, free memory, GPU (NVIDIA or Apple
     Silicon), the local context window, and which local models are loaded and
     whether they sit on the GPU or the CPU.
-  - **Treasure pockets** are the oil reserves, the blood of the gods: the
-    untapped stores that fuel the Trident. Each has a gauge: free memory,
-    free disk, and how much of the context window the last reply left unused.
-    `/pockets` (or `/oil`) shows them on their own.
+  - **Quarters are the four seasons**, three months each, and each is ridden
+    by one of the four horsemen of the apocalypse: Winter (Dec-Feb) by Death
+    on the pale horse, Spring (Mar-May) by Conquest on the white, Summer
+    (Jun-Aug) by War on the red, Fall (Sep-Nov) by Famine on the black. The
+    treasury keeps its books by quarter: work carried, votes cast, galleons
+    sunk, wrecks raised, bottles ashore, oil scrapped and chats. `/quarters`
+    shows the last four; the crew knows which season it is.
+  - **Treasure pockets** are the oil reserves, the blood of the gods. **Oil
+    is the ideas scrapped in past chat logs.** Seahorse drills for it four
+    ways: a message you took back in the next one ("scrap that", "never
+    mind", "instead" ...), bottles that washed ashore on Atlantizz, goals
+    dropped from the budget, and repealed shipwrecks. Each past chat holding
+    some is a pocket. When you ask for ideas, the oil that matches is refined
+    into the prompt as fuel, flagged as an earlier idea you set aside.
+    `/pockets` (or `/oil`) lists the reserves; `/pockets <words>` drills on a
+    topic. The Trident also shows headroom gauges for memory, disk and context.
   - **Davy Jones' Locker**: the void at the centre of the earth, where
     mussels fed on electric-eel blood grow as wide as satellite dishes and
     shift between the hemispheres like sand in a giant hourglass. Their pulse
