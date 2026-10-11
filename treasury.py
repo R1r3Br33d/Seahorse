@@ -59,6 +59,8 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+import change
+
 LEDGER = Path.home() / ".seahorse" / "treasury.json"
 TREASURER = "judge"
 GALLEON = 10         # shillings voting aye in a galleon (sunk, it becomes a shipwreck: a law)
@@ -145,9 +147,83 @@ def quarters_text(chats_dir=None, n=4):
         key = f"{year + (cur - i) // 4} {s[0]}"          # stepping back past Winter goes to the year before
         b = books.get(key, {})
         stats = " · ".join(f"{label} {b.get(k, 0)}" for k, label in (
-            ("work", "work"), ("votes", "votes"), ("sunk", "galleons sunk"), ("raised", "wrecks raised"),
+            ("work", "work"), ("paid", "paid ¢"), ("votes", "votes"), ("sunk", "galleons sunk"), ("raised", "wrecks raised"),
             ("ashore", "bottles ashore"), ("oil", "oil"), ("chats", "chats")))
         lines.append(f"  {'▸' if i == 0 else ' '} {key:<12} {s[2]:<9} {riders.get(s[0], ''):<26} {stats}")
+    return "\n".join(lines)
+
+
+# ---- payroll: the change is the agents' internal payment system ---------------------------------------------------
+# Every agent keeps a purse in change. The Kraken, as Treasurer, pays:
+#   a delivered reply   what it turned out to be worth ($0.00 to a whole value), settled when you answer it
+#                       (or when the chat ends) - by how much you had to change it (change.py)
+#   a relay step        a nickel in wages, at once
+#   a ballot            a penny, at once (council votes and law votes alike)
+# What a reply earns is also counted against the goal it served, and in the quarter's books.
+
+def pay(agent, cents, why, data=None):
+    """Pay `agent` `cents` hundredths. Pass the loaded ledger to batch with other changes (the caller saves)."""
+    own = data is None
+    data = data if data is not None else _load()
+    purse = data.setdefault("purses", {}).setdefault(agent, {"cents": 0, "by": {}})
+    purse["cents"] += cents
+    purse["by"][why] = purse["by"].get(why, 0) + cents
+    data["payments"] = (data.get("payments", []) + [{"agent": agent, "cents": cents, "why": why,
+                                                       "when": datetime.now().isoformat(timespec="seconds")}])[-60:]
+    _tick(data, "paid", cents)
+    if own:
+        _save(data)
+
+
+def hold(agent, asked, chat, goal_text=""):
+    """A reply was delivered: hold its pay until you answer it (or the chat ends)."""
+    data = _load()
+    data["pending"] = {"agent": agent, "asked": asked[:2000], "chat": chat, "goal": goal_text[:300]}
+    _save(data)
+
+
+def settle(next_user="", chat=None):
+    """Pay the held reply what it was worth. A reply from another chat (or chat=None with nothing said) stood.
+    Returns (agent, cents, ledger) or None if nothing was held."""
+    data = _load()
+    held = data.pop("pending", None)
+    if not held:
+        return None
+    ended = not next_user or (chat is not None and held.get("chat") != chat)
+    cents, ledger = change.worth("", "" if ended else next_user, held.get("asked", ""), ended=ended, scrap=SCRAP)
+    pay(held["agent"], cents, "replies delivered", data)
+    i = goal_for(held.get("goal", ""), data["goals"])
+    if i is not None:
+        data["goals"][i]["paid"] = data["goals"][i].get("paid", 0) + cents
+    _save(data)
+    return held["agent"], cents, ledger
+
+
+def payroll_text(order=None):
+    """/pay - every agent's purse in change, and the last payments."""
+    data = _load()
+    purses = data.get("purses", {})
+    order = order or list(purses)
+    total = sum(p["cents"] for p in purses.values())
+    lines = [f"  ¢ The payroll - the change is the agents' pay; the Kraken, as Treasurer, pays it out.",
+             f"    a delivered reply earns what it was worth ({change.dollars(0)} to {change.dollars(100)}) · "
+             f"a relay step {change.dollars(change.WAGES['relay step'])} · a ballot {change.dollars(change.WAGES['ballot'])}",
+             f"    paid out in all: {change.coins(total) if total else '$0.00 - nothing yet'}", ""]
+    for a in sorted(order, key=lambda a: -purses.get(a, {}).get("cents", 0)):
+        p = purses.get(a)
+        if not p:
+            continue
+        split = " · ".join(f"{why} {change.dollars(c)}" for why, c in sorted(p["by"].items(), key=lambda kv: -kv[1]))
+        lines.append(f"    {shilling(a, order) if a in order else '   '} {a:<12} {'$' + format(p['cents'] / 100, ',.2f'):>9}"
+                     f"  {split}")
+    if not purses:
+        lines.append("    no one has been paid yet - answer a reply and its agent is paid what it was worth")
+    if data.get("pending"):
+        lines += ["", f"    held: {data['pending']['agent']}'s last reply - paid when you answer it"]
+    recent = data.get("payments", [])[-6:]
+    if recent:
+        lines += ["", "    last payments:"] + [f"      {p['when'][11:16]}  {p['agent']:<12} {change.dollars(p['cents']):>6}  {p['why']}"
+                                               for p in reversed(recent)]
     return "\n".join(lines)
 
 
@@ -170,11 +246,12 @@ fish = penny = shilling   # older names
 # ---------------------------------------------------------------------------
 # The ledger: shillings cast and carried
 # ---------------------------------------------------------------------------
-def record_votes(voters):
+def record_votes(voters, why="council ballot"):
     data = _load()
     for a in voters:
         p = data["shillings"].setdefault(a, {"votes": 0, "work": 0})
         p["votes"] += 1
+        pay(a, change.WAGES["ballot"], why, data)
     _tick(data, "votes", len(voters))
     _save(data)
 
@@ -198,9 +275,12 @@ def goal_for(text, goals):
     return best
 
 
-def record_work(agent, text=""):
-    """A shilling of work carried by `agent`, spent on the goal it served (or general upkeep)."""
+def record_work(agent, text="", wage=False):
+    """A shilling of work carried by `agent`, spent on the goal it served (or general upkeep).
+    wage=True pays a relay step's wage (a nickel) at once; a delivered reply is paid when it is settled."""
     data = _load()
+    if wage:
+        pay(agent, change.WAGES["relay step"], "relay step carried", data)
     p = data["shillings"].setdefault(agent, {"votes": 0, "work": 0})
     p["work"] += 1
     _tick(data, "work")
@@ -624,7 +704,8 @@ def budget_text():
         share = f"{spent / total:.0%}" if total else "0%"
         who = ", ".join(f"{a} {n}" for a, n in sorted(g.get("by", {}).items(), key=lambda kv: -kv[1])[:3])
         lines.append(f"    {i}. {g['text']:<40} budget {g['cents']:>3}/100{' (fixed)' if g.get('fixed') else ''}"
-                     f" · spent {spent} shillings ({share} of the work){' · ' + who if who else ''}")
+                     f" · spent {spent} shillings ({share} of the work)"
+                     f"{' · paid ' + change.dollars(g['paid']) if g.get('paid') else ''}{' · ' + who if who else ''}")
     lines.append(f"    general upkeep (work for no listed goal): {data['general']} "
                  "shillings")
     return "\n".join(lines)

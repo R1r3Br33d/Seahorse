@@ -114,7 +114,7 @@ SECTIONS = [
               "The marlin is the people: your goals, direction and future. Poseidon's Trident, his most powerful asset and "
               "his bread and butter, is the working class: the processing power and how the work is distributed "
               "(/trident). Treasure pockets hold the oil, the blood of the gods: ideas scrapped in past chats, burned as fuel when you ask for ideas (/pockets). Davy Jones' Locker at the centre of the earth churns its currents (/locker); the Mariana Trench drives its undertow, pulling down whatever is held back (/trench). "
-              "The Kraken, the Judge, is Treasurer, and keeps the books by quarter: four seasons, each ridden by one of the four horsemen (/quarters).",
+              "The change is the agents' pay: each reply earns what it was worth, a relay step a nickel, a ballot a penny (/pay). The Kraken, the Judge, is Treasurer, and keeps the books by quarter: four seasons, each ridden by one of the four horsemen (/quarters).",
      "fields": [
          {"key": "law_threshold", "label": "Ayes to sink a galleon (make a law)", "kind": "number", "min": 6, "max": 10,
           "help": "10 means every shilling must vote aye. Throw a message in a bottle (a single amendment) in chat with /law <text>."},

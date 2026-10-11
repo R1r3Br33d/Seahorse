@@ -334,6 +334,17 @@ The crew is paid in pirate coin and the treasures of the sea.
     is a magnetic pulse on the navigation instruments: a worker that couldn't
     take a call. When the needle is thrown, Seahorse sails on by dead
     reckoning and the next worker takes the call. `/compass` (or `/news`).
+  - **The change is the agents' pay.** Every agent keeps a purse in change
+    (`change.py`), and the Kraken, as Treasurer, pays it out. A delivered
+    reply earns what it turned out to be worth, from $0.00 to a whole value
+    ($1.00). It's settled when you answer it: praise makes it a whole value,
+    building on it earns a dime, a correction costs a quarter, and having to
+    ask again costs the half. A reply still held when a chat ends counts as
+    standing (+a nickel). A relay step carried earns a nickel in wages and
+    every ballot (council or law) a penny, both paid at once. Pay is counted
+    against the goal it served (`/budget`) and in the quarter's books, and
+    Seahorse notes each payment quietly ("paid broca $0.60 (you built on
+    it)"). `/pay` (or `/purses`) shows every purse and the last payments.
   - **Quarters are the four seasons**, three months each, and each is ridden
     by one of the four horsemen of the apocalypse: Winter (Dec-Feb) by Death
     on the pale horse, Spring (Mar-May) by Conquest on the white, Summer

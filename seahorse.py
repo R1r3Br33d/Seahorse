@@ -43,6 +43,7 @@ from pathlib import Path
 import council
 import crew
 import treasury
+import change
 import lobes
 import ui
 from agency import AGENCY, CONSCIENCE_MIN_WORDS, DEPARTMENTS, FREQUENCY, Agency
@@ -821,6 +822,9 @@ class Session:
         active = self.skills_for(agent, self.user_texts() + [text])
         self.agent, self.active_skills = agent, active
         start = len(self.messages)
+        paid = treasury.settle(text, str(self.chat_path))   # the last reply is paid what it turned out to be worth
+        if paid:
+            self.paid_note(*paid)
         self.messages.append({"role": "user", "content": text})
         if self._agent_turn(agent, active, self.messages) is None:
             while self.messages and self.messages[-1]["role"] == "user":
@@ -828,7 +832,13 @@ class Session:
         else:
             self._record(agent.name, start)
             treasury.record_work(agent.name, text)
+            treasury.hold(agent.name, text, str(self.chat_path), text)
             self.after_reply(agent, text)
+
+    def paid_note(self, agent, cents, ledger):
+        """A quiet line when the Treasurer pays the last reply."""
+        why = ", ".join(w for d, w in ledger[1:]) or "it answered"
+        ui.note(f"paid {agent} {change.dollars(cents)} ({why})")
 
     # ------------------------------------------------------------------ the council (auto mode)
     def busy_with(self, label, agent=None):
@@ -897,7 +907,7 @@ class Session:
             if not work:
                 break   # the next agent carries on with whatever progress exists
             done.append(f"[step {i} · {name} - {council.PART.get(name, '')}]\n{work}")
-            treasury.record_work(name, text)   # the work passes on, shilling to shilling
+            treasury.record_work(name, text, wage=True)   # the work passes on, shilling to shilling, for a nickel
         return "\n\n".join(done), "\n".join(concerns)
 
     def pop_relay_notes(self):
@@ -1275,6 +1285,7 @@ HELP = f"""{BOLD}Commands{RESET}
 
 {BOLD}Fine-tuning{RESET}
   /finetune                 progress and what's in use
+  /pay                      the payroll: every agent's purse in change, and the last payments
   /change                   the change: coins, how a reply's worth is counted, each agent's purse
   /finetune plan|extract|outline|build   the Ultimate model, valued in change: plan it, price every reply
                             ($0.00-$1.00), read the dataset's worth, train it
@@ -2436,10 +2447,10 @@ def load_extra_instructions():
 
 
 TREASURY_COMMANDS = {c: c for c in ("treasury", "law", "laws", "budget", "trident", "trench", "locker", "compass",
-                                     "pockets", "quarters")}
+                                     "pockets", "quarters", "pay")}
 TREASURY_COMMANDS.update(wreck="law", wrecks="laws", reef="laws", rcso="laws", dollar="budget", marlin="budget",
                          goal="budget", goals="budget", undertow="trench", core="locker", davy="locker", news="compass",
-                         oil="pockets", reserves="pockets", quarter="quarters", seasons="quarters", horsemen="quarters")
+                         oil="pockets", reserves="pockets", payroll="pay", purse="pay", purses="pay", wages="pay", quarter="quarters", seasons="quarters", horsemen="quarters")
 
 
 def treasury_command(session, cmd, arg):
@@ -2448,6 +2459,9 @@ def treasury_command(session, cmd, arg):
     order = council.seating(session.agents.agents, cfg.get("council_seats"))
     threshold = int(cfg.get("law_threshold", treasury.DEFAULTS["law_threshold"]))
     words = arg.split()
+    if cmd == "pay":
+        print(treasury.payroll_text(order))
+        return print()
     if cmd == "quarters":
         print(treasury.quarters_text(HISTORY_DIR))
         return print()
@@ -2506,6 +2520,7 @@ def treasury_command(session, cmd, arg):
         if not votes:
             ui.note("the council couldn't be reached to vote just now")
             return print()
+        treasury.record_votes(list(votes), "law ballot")   # a penny a ballot
         try:
             status, _entry = treasury.propose(bill, votes, threshold, board)
         except ValueError as e:

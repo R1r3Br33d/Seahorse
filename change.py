@@ -38,7 +38,8 @@ COINS = [("whole value", 100), ("quarter", 25), ("dime", 10), ("nickel", 5), ("p
 SIGN = {"whole value": "$", "quarter": "Q", "dime": "D", "nickel": "N", "penny": "P"}
 
 START, PRAISED, BUILT_ON, LET_STAND, SCRAPPED, CORRECTED, ASKED_AGAIN = 50, 50, 10, 5, -10, -25, -50
-TWICE, ONCE = 75, 30   # training: worth this much or more (in hundredths)
+TWICE, ONCE = 75, 30
+WAGES = {"relay step": 5, "ballot": 1}   # paid at once: a nickel per relay step carried, a penny per ballot   # training: worth this much or more (in hundredths)
 
 PRAISE = re.compile(r"\b(thanks|thank you|thx|perfect|great|awesome|exactly|love it|nailed it|that works|"
                     r"that'?s right|spot on)\b", re.I)
