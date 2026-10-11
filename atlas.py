@@ -10,6 +10,7 @@ can't drift from what Seahorse actually does.
 
     python3 atlas.py                     print the map
     python3 atlas.py --write FILE.md     write it as Markdown (docs/ARCHITECTURE.md)
+    python3 atlas.py --commands FILE.md  write the full command reference, grouped by section (docs/COMMANDS.md)
     python3 atlas.py --check             exit 1 if a command is handled but not in /help, or the other way round
 
 How it reads the code: handle_command() in seahorse.py is parsed (not run) - every `cmd == "..."` and
@@ -302,11 +303,91 @@ def markdown():
     return "\n".join(md) + "\n"
 
 
+# ------------------------------------------------------------------ the command reference
+
+GROUPS = [   # (section, commands) - anything not listed keeps the section /help puts it in
+    ("Governance: the council, the reef and the board", ["board", "council", "judge", "lobes", "crew", "laws", "law",
+                                                         "quarters", "treasury", "budget"]),
+    ("The purse: pay, change and the spine", ["pay", "zero", "orez", "spine", "change"]),
+    ("The sea: what powers Seahorse", ["trident", "locker", "compass", "trench", "pockets"]),
+    ("Seahorse's map", ["map"]),
+]
+
+
+def help_sections():
+    """{command: (section, usage, description)} from /help, keeping its section headings."""
+    src = (HERE / "seahorse.py").read_text()
+    m = re.search(r'^HELP = f?"""(.*?)"""', src, re.S | re.M)
+    out, section = {}, "Basics"
+    for line in (m.group(1) if m else "").splitlines():
+        head = re.match(r"\{BOLD\}(.+?)\{RESET\}", line)
+        if head:
+            section = "Basics" if head.group(1) == "Commands" else head.group(1)
+            continue
+        if re.match(r"\s{2}/", line):
+            body = line[2:]
+            parts = re.split(r"\s{2,}", body, maxsplit=1)
+            if len(parts) == 1 and len(body) > 26 and body[25] == " ":    # usage filled its column: split there
+                parts = [body[:25], body[26:]]
+            usage, desc = parts[0].strip(), (parts[1] if len(parts) > 1 else "").strip()
+            for name in re.findall(r"(?:^|\s|\|)/([\w-]+)", usage):
+                out.setdefault(name, (section, usage, desc))
+            last = re.findall(r"/([\w-]+)", usage)[0]
+        elif line.startswith("   ") and out and line.strip():        # a description continued on the next line
+            more = re.sub(r"^\(or (/[\w-]+)\)\s*", "", line.strip())
+            sec, usage, desc = out[last]
+            out[last] = (sec, usage, (desc + " " + more).strip())
+    return out
+
+
+def commands_markdown():
+    rows, _missing, board = commands()
+    info = help_sections()
+    regroup = {c: g for g, cs in GROUPS for c in cs}
+    sections = {}
+    for r in rows:
+        known = next((n for n in [r["name"], *r["aliases"]] if n in info), None)
+        sec, usage, desc = info[known] if known else ("Other", "/" + r["name"], "")
+        if known != r["name"]:
+            usage = "/" + r["name"]
+        sections.setdefault(regroup.get(r["name"], sec), []).append((r, usage, desc))
+    order = [g for g, _ in GROUPS]
+    rest = [s for s in dict.fromkeys(info[c][0] for c in info) if s in sections and s not in order]
+    md = ["# Seahorse commands", "",
+          f"Every command Seahorse has, read from its code on {datetime.now():%Y-%m-%d}: {len(rows)} commands and "
+          f"{sum(len(r['aliases']) for r in rows)} aliases. Type `/` in the app to see them as you type, or `/help` "
+          "in the terminal. Refresh this page with `python3 atlas.py --commands docs/COMMANDS.md`.", ""]
+    md += ["**Sections:** " + " · ".join(f"[{s}](#{re.sub(r'[^a-z0-9 -]', '', s.lower()).replace(' ', '-')})"
+                                         for s in rest + order if s in sections), ""]
+    for sec in rest + order:
+        if sec not in sections:
+            continue
+        md += [f"## {sec}", "", "| Command | What it does | Also |", "|---|---|---|"]
+        for r, usage, desc in sorted(sections[sec], key=lambda t: t[0]["name"]):
+            md.append(f"| `{usage.replace('|', '/')}` | {desc.replace('|', '/') or '-'} | "
+                      f"{' '.join('`/' + a + '`' for a in r['aliases'])} |")
+        if sec.startswith("Governance") and board:
+            md += ["", "`/board` runs any of these as a sub-command: " +
+                   ", ".join(f"`/board {k}` = `/{v}`" for k, v in sorted(board.items())) + "."]
+        md.append("")
+    md += ["## Anywhere in a message", "",
+           "| Write | What happens |", "|---|---|",
+           "| `@octopus draft a letter` | sends one message to an agent by crew name, agent name or alias |",
+           "| `remember that ...` / `forget that ...` | saves or removes a memory |",
+           "| a line ending in `\\` | keeps typing on the next line (terminal) |", ""]
+    return "\n".join(md)
+
+
 if __name__ == "__main__":
     if "--write" in sys.argv:
         dest = Path(sys.argv[sys.argv.index("--write") + 1])
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(markdown())
+        print(f"wrote {dest}")
+    elif "--commands" in sys.argv:
+        dest = Path(sys.argv[sys.argv.index("--commands") + 1])
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(commands_markdown())
         print(f"wrote {dest}")
     elif "--check" in sys.argv:
         rows, missing, _b = commands()

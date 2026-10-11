@@ -126,7 +126,8 @@ that handles it; `/map tree` shows the module tree from the three entry
 points (the terminal app, the desktop app's server, and the fine-tuner),
 with what each module is for and its size; `/map usage` shows which
 commands you actually use, counted on your computer only. The same map is
-kept as [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), and
+kept as [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), every command is listed by section
+in [`docs/COMMANDS.md`](docs/COMMANDS.md), and
 `python3 atlas.py --check` fails if a command is handled but missing from
 `/help`, or documented but not handled.
 

@@ -13,7 +13,7 @@ seahorse.py         2909  entry: the terminal app and the Session (the heart)
 │   ├── crew.py              524  the Seahorse's crew: a character for every agent
 │   ├── lobes.py             391  the lobe vote: how Doc (left) and Fiery Black (right) advise the core
 │   └── memory.py            995  Seahorse's memory
-├── atlas.py             319  Seahorse maps itself: every command and the architecture tree, read from the…
+├── atlas.py             400  Seahorse maps itself: every command and the architecture tree, read from the…
 ├── builder.py           482  design or redesign Seahorse's persona, step by step
 │   ├── agents.py            552  (see above)
 │   ├── crew.py              524  (see above)
@@ -85,7 +85,7 @@ app/ (the desktop app's page, served by seahorse_app.py):
     settings.js          603
     style.css            287
 
-20 Python modules · 14,541 lines
+20 Python modules · 14,622 lines
 ```
 
 ## Commands
