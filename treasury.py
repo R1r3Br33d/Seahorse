@@ -161,11 +161,108 @@ def quarters_text(chats_dir=None, n=4):
 #   a ballot            a penny, at once (council votes and law votes alike)
 # What a reply earns is also counted against the goal it served, and in the quarter's books.
 
+# ---- the spine: a hash-chained sequence of every payment, from zero ---------------------------------------------
+# Every payment is a vertebra: numbered in sequence, wedged between the balance before and after, and sealed with
+# SHA-256 over the vertebra before it. Nothing is a coin or a token - it is a tamper-evident journal, like the
+# reef's stone. The purses are a function of the spine: replay it from zero and every purse must come out to the
+# exact penny. /spine shows the last vertebrae and checks both the seals and the replay.
+
+SPINE = Path.home() / ".seahorse" / "spine.jsonl"
+_TIP = {}   # spine path -> (size, seq, hash): the last vertebra, so appending doesn't re-read the file
+
+
+def _vertebra_seal(v, prev):
+    body = json.dumps({k: v[k] for k in ("seq", "when", "agent", "cents", "why", "before", "after")}, sort_keys=True)
+    return hashlib.sha256((prev + body).encode("utf-8")).hexdigest()
+
+
+def _spine_tip():
+    try:
+        size = SPINE.stat().st_size
+    except OSError:
+        return 0, ""
+    hit = _TIP.get(SPINE)
+    if hit and hit[0] == size:
+        return hit[1], hit[2]
+    seq, prev = 0, ""
+    with open(SPINE, "rb") as f:          # read just the last line
+        f.seek(max(0, size - 4096))
+        lines = f.read().splitlines()
+    for line in reversed(lines):
+        try:
+            v = json.loads(line)
+            seq, prev = v["seq"], v["hash"]
+            break
+        except (ValueError, KeyError):
+            continue
+    _TIP[SPINE] = (size, seq, prev)
+    return seq, prev
+
+
+def _grow_spine(agent, cents, why, before):
+    seq, prev = _spine_tip()
+    v = {"seq": seq + 1, "when": datetime.now().isoformat(timespec="seconds"), "agent": agent, "cents": cents,
+         "why": why, "before": before, "after": before + cents}
+    v["hash"] = _vertebra_seal(v, prev)
+    SPINE.parent.mkdir(parents=True, exist_ok=True)
+    with open(SPINE, "a", encoding="utf-8") as f:
+        f.write(json.dumps(v) + "\n")
+    _TIP[SPINE] = (SPINE.stat().st_size, v["seq"], v["hash"])
+
+
+def spine(limit=None):
+    try:
+        rows = [json.loads(l) for l in SPINE.read_text(encoding="utf-8").splitlines() if l.strip()]
+    except (OSError, ValueError):
+        rows = []
+    return rows[-limit:] if limit else rows
+
+
+def spine_check():
+    """(seals intact, first broken seq or None, replay from zero matches the purses, differences)."""
+    rows, prev, broken = spine(), "", None
+    replay = {}
+    for v in rows:
+        if broken is None and (v.get("hash") != _vertebra_seal(v, prev) or v.get("before") != replay.get(v["agent"], 0)):
+            broken = v.get("seq")
+        prev = v.get("hash", "")
+        replay[v["agent"]] = replay.get(v["agent"], 0) + v["cents"]
+    purses = {a: p["cents"] for a, p in _load().get("purses", {}).items() if p["cents"] or a in replay}
+    diff = {a: (replay.get(a, 0), purses.get(a, 0)) for a in set(replay) | set(purses)
+            if replay.get(a, 0) != purses.get(a, 0)}
+    return broken is None, broken, not diff, diff
+
+
+def spine_text(n=12):
+    rows = spine()
+    ok, broken, replays, diff = spine_check()
+    lines = ["  ⟟ The spine - every payment a vertebra, in sequence from zero, each sealed to the one before.",
+             f"    {len(rows)} vertebrae · seals {'intact' if ok else f'BROKEN at vertebra {broken}'} · replayed from zero, "
+             + ("every purse matches to the penny" if replays else
+                "the purses DON'T match: " + ", ".join(f"{a} spine {change.dollars(r)} vs purse {change.dollars(p)}"
+                                                        for a, (r, p) in diff.items())), ""]
+    for v in rows[-n:]:
+        sign = "+" if v["cents"] >= 0 else "-"
+        wedge = f"{abs(v['cents']) / 100:.2f}"
+        lines.append(f"    #{v['seq']:<5} {v['when'][5:16].replace('T', ' ')}  {v['agent']:<12} {sign}{wedge} of a whole  "
+                     f"{change.dollars(v['before'])} → {change.dollars(v['after'])}  {v['why']:<22} {v['hash'][:10]}")
+    if not rows:
+        lines.append("    no vertebrae yet - the first payment starts the spine")
+    return "\n".join(lines)
+
+
 def pay(agent, cents, why, data=None):
-    """Pay `agent` `cents` hundredths. Pass the loaded ledger to batch with other changes (the caller saves)."""
+    """Pay `agent` `cents` hundredths. Pass the loaded ledger to batch with other changes (the caller saves).
+    Every payment also grows the spine by one vertebra."""
     own = data is None
     data = data if data is not None else _load()
-    purse = data.setdefault("purses", {}).setdefault(agent, {"cents": 0, "by": {}})
+    purses = data.setdefault("purses", {})
+    if not SPINE.exists():                       # the spine starts at zero: carry any opening balances onto it
+        for a, p in purses.items():
+            if p.get("cents"):
+                _grow_spine(a, p["cents"], "opening balance", 0)
+    purse = purses.setdefault(agent, {"cents": 0, "by": {}})
+    _grow_spine(agent, cents, why, purse["cents"])
     purse["cents"] += cents
     purse["by"][why] = purse["by"].get(why, 0) + cents
     data["payments"] = (data.get("payments", []) + [{"agent": agent, "cents": cents, "why": why,

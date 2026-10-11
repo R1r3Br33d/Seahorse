@@ -380,6 +380,15 @@ The crew is paid in pirate coin and the treasures of the sea.
     $0.34, $0.33, $0.33. Amounts can be written `$1.25`, `125c`, `3
     quarters` or `a dime`. `/zero` shows the key. **OREZ** is ZERO in
     reverse (S, A, D, M): `/orez` runs the last move back and undoes it.
+  - **The spine** is the sequencer between zero and the whole values. Every
+    payment becomes a vertebra: numbered in sequence, wedged between the
+    purse's balance before and after (shown as a fraction of a whole value),
+    and sealed with SHA-256 over the vertebra before it. It's a tamper-evident
+    journal like the reef's stone, not a cryptocurrency: no coins or tokens
+    exist outside Seahorse. The purses are a function of the spine. Replay it
+    from zero and every purse must come out to the exact penny. `/spine` (or
+    `/sequence`) shows the last vertebrae and checks the seals and the replay.
+    Changing or removing any vertebra breaks the seal at that point.
   - **Quarters are the four seasons**, three months each, and each is ridden
     by one of the four horsemen of the apocalypse: Winter (Dec-Feb) by Death
     on the pale horse, Spring (Mar-May) by Conquest on the white, Summer
