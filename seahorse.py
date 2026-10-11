@@ -1252,7 +1252,7 @@ HELP = f"""{BOLD}Commands{RESET}
   /council                  how all ten agents voted on who answers (auto mode), and the stats
   /council on|off · steps <n> · approval on|off · threshold <x> · revisions <n>   tune the council
   /treasury                 the treasury: every agent a shilling, Poseidon (the Judge) as Treasurer, the reef
-  /law [board:] <text>      propose a bill (a single amendment) to a cabinet board; all ten shillings vote; ten ayes
+  /law [board:] <text>      throw a message in a bottle (a single amendment) to a cabinet board; all ten shillings vote; ten ayes
      (or /wreck)            make a galleon, sunk into the reef as a shipwreck: a law (boards: state, communications,
                             navigation, works, education, planning, inspection, science, defense, treasury)
   /reef [all] · /law repeal <wreck>   the Reef Courtesy Standard Operation (RCSO, the constitution), set in stone:
@@ -2396,7 +2396,7 @@ def treasury_command(session, cmd, arg):
                 else "no shipwreck in force by that number (/reef shows them, e.g. 9.01)")
     elif cmd == "laws":
         print(treasury.cabinet_text(show_repealed=arg.strip() in ("all", "history")))
-        ui.note(f"/law <board>: <text> proposes a bill · /law repeal <wreck> · /reef all for raised wrecks · "
+        ui.note(f"/law <board>: <text> throws a message in a bottle · /law repeal <wreck> · /reef all for raised wrecks · "
                 f"readable copy: {treasury.STONE_MD}")
     elif cmd == "law" and arg.strip():
         board, bill = treasury.board_for(arg.strip(), session.agents)
@@ -2417,7 +2417,7 @@ def treasury_command(session, cmd, arg):
                          "\n".join(treasury.vote_lines(bill, votes, threshold, status, order, board)))
     else:
         print(treasury.describe(order, threshold))
-        ui.note("/law [board:] <text> propose a bill · /law repeal <wreck> · /reef · ten ayes make a galleon, sunk as a shipwreck")
+        ui.note("/law [board:] <text> throw a message in a bottle · /law repeal <wreck> · /reef · ten ayes make a galleon, sunk as a shipwreck")
     print()
 
 

@@ -88,7 +88,7 @@ Seahorse: memory, notebooks, profile and character.
 | `memory.py` | Long-term memory: facts, past conversations, condensing long chats |
 | `agents.py` | The ten agents, defined once in a compact table: eight brain regions, plus Doc and Fiery Black as the left and right lobes |
 | `crew.py` | The crew: a character for every agent from the 11 steps, their notary seals, the loyalty pledge and the chant |
-| `treasury.py` | The treasury: agents as shillings, bills (single amendments), galleons sunk as shipwrecks (laws) in the Reef Courtesy Standard Operation, set in stone in ten cabinet boards, black pearls, the marlin (Poseidon's Trident) and the budget |
+| `treasury.py` | The treasury: agents as shillings, messages in bottles (single amendments), galleons sunk as shipwrecks (laws) in the Reef Courtesy Standard Operation, set in stone in ten cabinet boards, black pearls, the marlin (Poseidon's Trident) and the budget |
 | `council.py` | The council: all ten agents vote on who answers, relays with approval steps |
 | `lobes.py` | The lobe vote: Doc and Fiery Black ballot in parallel, the tally, and the Judge on close splits |
 | `settings.py` | Every setting described once, validated and applied (the app's Settings tab) |
@@ -280,11 +280,13 @@ The crew is paid in pirate coin and the treasures of the sea.
   counted in shillings, and work passes through the agents one by one, shilling to shilling.
 - **Treasurer.** Poseidon, the Judge, keeps the ledger, counts the votes and
   sinks the galleons.
-- **A bill is a single amendment.** `/law [board:] <text>` proposes one to a
-  government cabinet board. All ten shillings vote aye or nay in seat order.
+- **A message in a bottle is a single amendment.** `/law [board:] <text>`
+  throws one to a government cabinet board. All ten shillings vote aye or nay
+  in seat order.
 - **Shipwrecks are law.** Ten ayes (by default) make a galleon, and Poseidon
-  sinks it into the reef: it becomes a shipwreck, a law. A bill that would
-  conflict with honesty, your wellbeing or safety is voted down.
+  sinks it into the reef: it becomes a shipwreck, a law. A bottle that fails
+  washes ashore. One that would conflict with honesty, your wellbeing or safety
+  is voted down.
 - **The Reef Courtesy Standard Operation (RCSO)** is the constitution: every
   shipwreck on the reef. Every agent follows it.
 - **Black pearls.** The RCSO is filed in ten cabinet boards, each chaired by
@@ -313,7 +315,7 @@ The crew is paid in pirate coin and the treasures of the sea.
     `/budget drop <n>`); each shilling of work is counted against the goal it
     served, so `/budget` shows what's in the budget and where the effort went.
   - **Undertow**: what is pulled under and kept out of circulation: secrets
-    memory refused to store, bills voted down, chats from the old incognito mode.
+    memory refused to store, bottles that washed ashore, chats from the old incognito mode.
   - **Flow of information**: exactly how much data, from which source (memory,
     notebooks, profile, shipwrecks, goals, role, skills), reached the last reply.
 

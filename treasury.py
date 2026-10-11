@@ -8,8 +8,9 @@ treasury.py - the ship's treasury, paid in pirate coin and the treasures of the 
                  is counted in shillings.
     WORK         Moves through the agents one by one, shilling to shilling, in a
                  relay.
-    A BILL       A single amendment: one proposed change, put to the shillings with
-                 /law [board:] <text>. All ten vote aye or nay in seat order.
+    A BOTTLE     A message in a bottle: a single amendment, one proposed change,
+                 thrown to the shillings with /law [board:] <text>. All ten vote
+                 aye or nay in seat order; a bottle that fails washes ashore.
     GALLEONS     Ten shillings voting aye make a galleon. The Treasurer sinks it
                  into the reef, where it becomes a SHIPWRECK: a law.
     REEF         The REEF COURTESY STANDARD OPERATION (RCSO) - the constitution:
@@ -24,7 +25,7 @@ treasury.py - the ship's treasury, paid in pirate coin and the treasures of the 
                  shilling and galleon serves it. Its three prongs:
                    currents   where the crew's effort flows: your goals and the budget
                    undertow   what is pulled under and kept out of circulation:
-                              secrets never stored, bills voted down, chats excluded
+                              secrets never stored, bottles washed ashore, chats excluded
                    flow       the flow of information: how much data, from which
                               source, reaches each reply (/trident)
     BUDGET       How the marlin is shared across your goals, in parts out of 100
@@ -34,7 +35,7 @@ treasury.py - the ship's treasury, paid in pirate coin and the treasures of the 
                  sinks the galleons and keeps the budget.
 
 The RCSO never outranks Seahorse's core values or the core character
-rules: honesty, your wellbeing, safety. A bill that conflicts with them is
+rules: honesty, your wellbeing, safety. A bottle that conflicts with them is
 voted down, and the prompt says plainly that they win. Ledger:
 ~/.seahorse/treasury.json.
 """
@@ -334,7 +335,7 @@ def _write_md():
 
 
 def board_for(text, agents=None):
-    """(chair, bill text): a bill may name its board ('security: ...', 'Education: ...', '@doc: ...');
+    """(chair, bottle text): a message in a bottle may name its board ('security: ...', 'Education: ...', '@doc: ...');
     otherwise it goes to the board whose chair's subject it matches best, or to State."""
     m = re.match(r"\s*@?([\w &-]{2,30}?)\s*:\s*(.+)$", text or "", re.S)
     if m:
@@ -355,12 +356,12 @@ def board_for(text, agents=None):
 
 
 # ---------------------------------------------------------------------------
-# Bills (single amendments), galleons and shipwrecks (laws)
+# Messages in bottles (single amendments), galleons and shipwrecks (laws)
 # ---------------------------------------------------------------------------
 def law_prompt(text, order, board=STATE):
     current = "\n".join(f"- {l['text']}" for l in laws(board)) or "(none yet)"
     seats = ", ".join(f"{shilling(a, order)} {a}" for a in order)
-    return (f"A bill - a single amendment - has been proposed to the {BOARDS[board]} board of the crew's "
+    return (f"A message in a bottle - a single amendment - has been proposed to the {BOARDS[board]} board of the crew's "
             f"Reef Courtesy Standard Operation (the crew's constitution):\n\"{text[:600]}\"\n\n"
             f"Amendments already in force on this board:\n{current}\n\n"
             f"Vote as each of the ten agents of Seahorse's mind, in seat order: {seats}.\n"
@@ -394,7 +395,7 @@ def count(votes, threshold):
 
 def propose(text, votes, threshold, board=STATE):
     """Record the outcome. Returns (status, entry) - status: minted, failed, full or empty.
-    A passed bill is a galleon sunk into the reef: a shipwreck with its permanent wreck number."""
+    A bottle that passes is a galleon sunk into the reef: a shipwreck with its permanent wreck number."""
     text = re.sub(r"\s+", " ", text or "").strip()
     if not text:
         return "empty", None
@@ -466,7 +467,7 @@ def constitution_prompt(agent_name=None, query="", agents=None):
 # ---------------------------------------------------------------------------
 def vote_lines(text, votes, threshold, status, order, board=STATE):
     ayes, nays, _ = count(votes, threshold)
-    out = [f"bill (a single amendment) to the {BOARDS.get(board, 'State')} board: \"{text}\""]
+    out = [f"message in a bottle (a single amendment) to the {BOARDS.get(board, 'State')} board: \"{text}\""]
     out += [f"{shilling(a, order)} {a}: {v}{' - ' + r if r else ''}" for a, (v, r) in votes.items()]
     missing = [a for a in order if a not in votes]
     if missing:
@@ -476,7 +477,7 @@ def vote_lines(text, votes, threshold, status, order, board=STATE):
     art = laws(board)[-1]["art"] if status == "minted" and laws(board) else ""
     verdict = {"minted": f"a galleon - sunk into the reef as Wreck {art}, a law ({n} of {PER_BOARD} on the "
                          f"{BOARDS.get(board, 'State')} board)" + (" - the board is complete: a BLACK PEARL" if black else ""),
-               "failed": f"short of the {threshold} shillings needed: the bill fails, no galleon sails",
+               "failed": f"short of the {threshold} shillings needed: the bottle washes ashore, no galleon sails",
                "full": f"a galleon, but the {BOARDS.get(board, 'State')} board is already a black pearl ({PER_BOARD} "
                        "shipwrecks): raise one first (/law repeal <wreck>)",
                "empty": "nothing to vote on"}[status]
@@ -507,7 +508,7 @@ def cabinet_text(show_repealed=False):
 
 def describe(order, threshold=GALLEON):
     data = _load()
-    lines = [f"  Treasurer: Poseidon ({TREASURER}) · a bill needs {threshold} of {GALLEON} shillings to become a galleon",
+    lines = [f"  Treasurer: Poseidon ({TREASURER}) · a bottle needs {threshold} of {GALLEON} shillings to become a galleon",
              "", "  The shillings (by seat):"]
     for a in order:
         p = data["shillings"].get(a, {"votes": 0, "work": 0})
@@ -518,7 +519,7 @@ def describe(order, threshold=GALLEON):
     lines += ["", cabinet_text()]
     if data["failed"]:
         last = data["failed"][-1]
-        lines += ["", f"  Last failed bill: \"{last['text']}\" ({last['ayes']} aye, {last['nays']} nay)"]
+        lines += ["", f"  Last bottle washed ashore: \"{last['text']}\" ({last['ayes']} aye, {last['nays']} nay)"]
     lines += ["", budget_text()]
     return "\n".join(lines)
 
@@ -555,7 +556,7 @@ def trident_text(flow=None, memory=None):
         except Exception:  # noqa: BLE001 - the count is a nicety
             blocked = 0
     lines += [f"    secrets (passwords, keys, card numbers) refused by memory: {blocked}",
-              f"    bills voted down and never sunk into the reef: {len(data['failed'])}",
+              f"    bottles voted down and washed ashore, never sunk into the reef: {len(data['failed'])}",
               "    chats saved under the old incognito mode: excluded from training and your profile",
               "", "  Flow of information - the data that reached the last reply:"]
     if flow:
