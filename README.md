@@ -88,7 +88,7 @@ Seahorse: memory, notebooks, profile and character.
 | `memory.py` | Long-term memory: facts, past conversations, condensing long chats |
 | `agents.py` | The ten agents, defined once in a compact table: eight brain regions, plus Doc and Fiery Black as the left and right lobes |
 | `crew.py` | The crew: a character for every agent from the 11 steps, their notary seals, the loyalty pledge and the chant |
-| `treasury.py` | The treasury: agents as shillings, messages in bottles (single amendments), galleons sunk as shipwrecks (laws) in the Reef Courtesy Standard Operation, set in stone in ten cabinet boards, black pearls, the marlin (Poseidon's Trident) and the budget |
+| `treasury.py` | The treasury: agents as shillings, messages in bottles (single amendments), galleons sunk as shipwrecks (laws) in the Reef Courtesy Standard Operation, set in stone in ten cabinet boards, black pearls, the marlin (the people) and the budget, and Poseidon's Trident (the working class) |
 | `council.py` | The council: all ten agents vote on who answers, relays with approval steps |
 | `lobes.py` | The lobe vote: Doc and Fiery Black ballot in parallel, the tally, and the Judge on close splits |
 | `settings.py` | Every setting described once, validated and applied (the app's Settings tab) |
@@ -311,8 +311,9 @@ The crew is paid in pirate coin and the treasures of the sea.
   across your goals (`/budget add <goal>`, `/budget set <n> <share>`,
   `/budget drop <n>`); each shilling of work is counted against the goal it
   served, so `/budget` shows what's in the budget and where the effort went.
-- **Poseidon's Trident is the working class**: the processing power that does
-  the crew's work, and how that work is distributed. `/trident` reports:
+- **Poseidon's Trident is the working class**, his most powerful asset and
+  his bread and butter: the processing power that does the crew's work, and
+  how that work is distributed. `/trident` reports:
   - **Processing power**: CPU cores, free memory, GPU (NVIDIA or Apple
     Silicon), the local context window, and which local models are loaded and
     whether they sit on the GPU or the CPU.

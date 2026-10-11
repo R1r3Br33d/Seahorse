@@ -21,7 +21,8 @@ treasury.py - the ship's treasury, paid in pirate coin and the treasures of the 
                  sea. A full board takes no more until one is repealed.
     MARLIN       The PEOPLE: you - your goals, direction and future. Every
                  shilling and galleon serves it (/budget).
-    TRIDENT      POSEIDON'S TRIDENT: the working class - the processing power
+    TRIDENT      POSEIDON'S TRIDENT: his most powerful asset, his bread and
+                 butter. The working class - the processing power
                  (CPU, memory, GPU, the models) and how the work is distributed
                  among them; the Atlantean control of currents, undertow and the
                  flow of information (/trident):
@@ -548,9 +549,10 @@ def trident_text(flow=None, memory=None, power=None, workers=None, order=None):
     """Poseidon's Trident - the working class: the processing power, and how the work is distributed."""
     data = _load()
     power, workers, order = power or {}, workers or [], order or []
-    lines = ["  Ψ Poseidon's Trident - the working class: the processing power that does the crew's work, and how",
-             "    that work is distributed. Its prongs are currents (distribution), undertow (what is held back) and",
-             "    the flow of information.", "", "  Processing power:"]
+    lines = ["  Ψ Poseidon's Trident - his most powerful asset, his bread and butter. The working class: the",
+             "    processing power that does the crew's work, and how that work is distributed. Its prongs are",
+             "    currents (distribution), undertow (what is held back) and the flow of information.", "",
+             "  Processing power:"]
     ram = power.get("ram")
     lines += [f"    CPU     {power.get('cpu', '?')}",
               f"    memory  {f'{ram:.1f} GB free' if ram else 'unknown'}",
