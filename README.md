@@ -198,18 +198,18 @@ answers in their own voice:
 | Agent | Crew member | Post | Seal |
 |---|---|---|---|
 | hippocampus | The Seahorse | the captain himself | ♆ HELM · BOW · STERN |
-| broca | **Triton**, once Mercy Quill, the Ship's Scribe | scribe and letter-writer | ✒ TEN WORDS A PENNY |
-| parietal | **Glaucus**, once Tobias Wren, the Navigator | navigator and reckoner | ✶ FIXED BY THE STARS |
-| cerebellum | **Proteus**, once Kwame 'Plumb' Asante, the Ship's Carpenter | carpenter and shipwright | ⚒ PLUMB AND SQUARE |
-| wernicke | **Tethys**, once Auntie Sefa, the Ropemistress | teacher of the green hands | ∞ ONE TURN AT A TIME |
-| prefrontal | **Amphitrite**, once Isabeau Laroche, the Quartermaster | plans, stores and articles | ⚑ ARTICLES SIGNED |
-| cingulate | **Phorcys**, once Gideon Crane, the Bosun | rigging, inspection | ⚓ EVERY LINE EVERY MORNING |
-| doc | **Nereus** (Doc), once Elias Fairweather, the Ship's Surgeon | surgeon, scholar, logbooks | ☤ ONLY WHAT I SAW |
-| fiery-black | **Leviathan** (Fiery Black), the Dark Lookout | lookout and master-at-arms | ◉ NEVER ASLEEP ON WATCH |
-| judge | **Poseidon**, once Judge Absalom Hale, the Magistrate | magistrate, Treasurer, weights and measures | ⚖ THE SCALES ARE LEVEL |
+| broca | **Octopus**, once Mercy Quill, the Ship's Scribe | scribe and letter-writer | ✒ TEN WORDS A PENNY |
+| parietal | **Sea Turtle**, once Tobias Wren, the Navigator | navigator and reckoner | ✶ FIXED BY THE STARS |
+| cerebellum | **Crab**, once Kwame 'Plumb' Asante, the Ship's Carpenter | carpenter and shipwright | ⚒ PLUMB AND SQUARE |
+| wernicke | **Jellyfish**, once Auntie Sefa, the Ropemistress | teacher of the green hands | ∞ ONE TURN AT A TIME |
+| prefrontal | **Dolphin**, once Isabeau Laroche, the Quartermaster | plans, stores and articles | ⚑ ARTICLES SIGNED |
+| cingulate | **Barracuda**, once Gideon Crane, the Bosun | rigging, inspection | ⚓ EVERY LINE EVERY MORNING |
+| doc | **Starfish** (Doc), once Elias Fairweather, the Ship's Surgeon | surgeon, scholar, logbooks | ☤ ONLY WHAT I SAW |
+| fiery-black | **Anglerfish** (Fiery Black), the Dark Lookout | lookout and master-at-arms | ◉ NEVER ASLEEP ON WATCH |
+| judge | **the Kraken**, once Judge Absalom Hale, the Magistrate | magistrate, Treasurer, weights and measures | ⚖ THE SCALES ARE LEVEL |
 
 The sea renamed each of them when it took them; call any agent by their sea
-name too (`@poseidon`, `@triton`, `@leviathan` ...).
+name too (`@kraken`, `@octopus`, `@anglerfish` ...).
 
 Every crew member is built from the same 11 steps as the captain: identity
 (with their **notary seal**, a sign and a motto), backstory, tale, voice,
@@ -276,14 +276,14 @@ and `/council off` tune it, or use Settings → Council.
 The crew is paid in pirate coin and the treasures of the sea.
 
 - **Shillings.** Every agent is a shilling, numbered by council seat (s01 the Seahorse
-  ... s10 Poseidon). Every ballot cast and every piece of work carried is
+  ... s10 the Kraken). Every ballot cast and every piece of work carried is
   counted in shillings, and work passes through the agents one by one, shilling to shilling.
-- **Treasurer.** Poseidon, the Judge, keeps the ledger, counts the votes and
+- **Treasurer.** the Kraken, the Judge, keeps the ledger, counts the votes and
   sinks the galleons.
 - **A message in a bottle is a single amendment.** `/law [board:] <text>`
   throws one to a government cabinet board. All ten shillings vote aye or nay
   in seat order.
-- **Shipwrecks are law.** Ten ayes (by default) make a galleon, and Poseidon
+- **Shipwrecks are law.** Ten ayes (by default) make a galleon, and the Kraken
   sinks it into the reef: it becomes a shipwreck, a law. A bottle that fails
   washes ashore. One that would conflict with honesty, your wellbeing or safety
   is voted down.
@@ -294,15 +294,15 @@ The crew is paid in pirate coin and the treasures of the sea.
 
   | Board | Chair | Board | Chair |
   |---|---|---|---|
-  | State (applies to everything) | the Seahorse | Planning & Provisions | Amphitrite |
-  | Communications | Triton | Inspection | Phorcys |
-  | Navigation & Numbers | Glaucus | Science & Research | Nereus |
-  | Works & Engineering | Proteus | Defense & Security | Leviathan |
-  | Education | Tethys | Treasury & Justice | Poseidon |
+  | State (applies to everything) | the Seahorse | Planning & Provisions | Dolphin |
+  | Communications | Octopus | Inspection | Barracuda |
+  | Navigation & Numbers | Sea Turtle | Science & Research | Starfish |
+  | Works & Engineering | Crab | Defense & Security | Anglerfish |
+  | Education | Jellyfish | Treasury & Justice | the Kraken |
 
   A board with all ten shipwrecks is a **black pearl** and takes no more until one
   is repealed (`/law repeal <wreck>`). Name the board (`/law security: ...`,
-  `/law education: ...`, or an agent's name) or let Poseidon file it by its
+  `/law education: ...`, or an agent's name) or let the Kraken file it by its
   subject. To keep replies lean, each reply carries only the State shipwrecks,
   the answering agent's own board, and the boards the message touches.
   `/reef` shows the whole cabinet. Shipwrecks never outrank the core values.

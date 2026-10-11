@@ -1302,7 +1302,7 @@ HELP = f"""{BOLD}Commands{RESET}
   /persona [use|save|delete|new] <name>   saved personas (the Seahorse is built in)
   /council                  how all ten agents voted on who answers (auto mode), and the stats
   /council on|off · steps <n> · approval on|off · threshold <x> · revisions <n>   tune the council
-  /treasury                 the treasury: every agent a shilling, Poseidon (the Judge) as Treasurer, the reef
+  /treasury                 the treasury: every agent a shilling, the Kraken (the Judge) as Treasurer, the reef
   /law [board:] <text>      throw a message in a bottle (a single amendment) to a cabinet board; all ten shillings vote; ten ayes
      (or /wreck)            make a galleon, sunk into the reef as a shipwreck: a law (boards: state, communications,
                             navigation, works, education, planning, inspection, science, defense, treasury)

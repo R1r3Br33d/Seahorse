@@ -3,7 +3,7 @@
 treasury.py - the ship's treasury, paid in pirate coin and the treasures of the sea.
 
     SHILLINGS    Each of the ten agents is a shilling, numbered by council seat:
-                 s01 is seat 01 (the captain) ... s10 is seat 10 (Poseidon).
+                 s01 is seat 01 (the captain) ... s10 is seat 10 (the Kraken).
                  Every ballot an agent casts and every piece of work it carries
                  is counted in shillings.
     WORK         Moves through the agents one by one, shilling to shilling, in a
@@ -33,7 +33,7 @@ treasury.py - the ship's treasury, paid in pirate coin and the treasures of the 
     BUDGET       How the marlin is shared across your goals, in parts out of 100
                  (/budget). Every shilling of work the crew carries is counted
                  against the goal it served.
-    TREASURER    Poseidon (the Judge) keeps the ledger, counts every vote,
+    TREASURER    the Kraken (the Judge) keeps the ledger, counts every vote,
                  sinks the galleons and keeps the budget.
 
 The RCSO never outranks Seahorse's core values or the core character
@@ -510,7 +510,7 @@ def cabinet_text(show_repealed=False):
 
 def describe(order, threshold=GALLEON):
     data = _load()
-    lines = [f"  Treasurer: Poseidon ({TREASURER}) · a bottle needs {threshold} of {GALLEON} shillings to become a galleon",
+    lines = [f"  Treasurer: the Kraken ({TREASURER}) · a bottle needs {threshold} of {GALLEON} shillings to become a galleon",
              "", "  The shillings (by seat):"]
     for a in order:
         p = data["shillings"].get(a, {"votes": 0, "work": 0})
