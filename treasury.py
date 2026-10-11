@@ -32,6 +32,9 @@ treasury.py - the ship's treasury, paid in pirate coin and the treasures of the 
                               secrets never stored, bottles washed ashore.
                               Each thing pulled under sinks a tenth of the
                               way (1,093 m); ten reach Challenger Deep.
+                   locker     Davy Jones' Locker, the core that churns the
+                              currents: the pulse (calls answered) and the
+                              hourglass of the two hemispheres (/locker)
                    flow       how much data, from which source, reaches each reply
     BUDGET       How the marlin is shared across your goals, in parts out of 100
                  (/budget). Every shilling of work the crew carries is counted
@@ -586,6 +589,36 @@ def trench_text(memory=None, workers=None):
                      + trench_lines(None, memory, workers))
 
 
+def locker_lines(workers=None):
+    """Davy Jones' Locker, the void at the centre of the earth. Mussels fed on the blood of electric eels grow
+    there as wide as satellite dishes, so many that they shift between hemispheres like the sand in a giant
+    hourglass. Their pulse at the core churns the ocean: it drives every current above.
+    In Seahorse: the pulse is every call the workers answered; the hourglass is the two lobes (the
+    hemispheres) - it tips toward whichever lobe has carried more votes on its own."""
+    import lobes
+    workers = workers or []
+    beats = sum(max(0, w["calls"] - w.get("unavailable", 0)) for w in workers)
+    hemi = lobes.load_stats().get("hemisphere", {})
+    left, right = hemi.get("left", 0), hemi.get("right", 0)
+    total = left + right
+    sand = round(10 * left / total) if total else 5
+    glass = "◀ " + "█" * sand + "░" * (10 - sand) + " ▶"
+    lean = ("the mussels sit level, half in each hemisphere" if left == right else
+            f"the mussels are massing in the {'left' if left > right else 'right'} hemisphere")
+    return ["  Davy Jones' Locker - the void at the centre of the earth, which churns the currents:",
+            "    mussels fed on electric-eel blood, each as wide as a satellite dish, shift between the",
+            "    hemispheres like sand in a giant hourglass. Their pulse at the core drives every current.",
+            f"    pulse      {beats} beats (calls the workers answered this session)" + (" - still" if not beats else ""),
+            f"    hourglass  left {glass} right   left lobe carried {left} · right lobe carried {right}",
+            f"               {lean}"]
+
+
+def locker_text(workers=None):
+    """/locker - the core on its own."""
+    return "\n".join(["  ⧗ Davy Jones' Locker", ""] + locker_lines(workers)
+                     + ["", "  (The currents it drives are in /trident; the undertow it feeds is in /trench.)"])
+
+
 def trident_text(flow=None, memory=None, power=None, workers=None, order=None):
     """Poseidon's Trident - the working class: the processing power, and how the work is distributed."""
     data = _load()
@@ -603,6 +636,7 @@ def trident_text(flow=None, memory=None, power=None, workers=None, order=None):
               f"{'lobes vote in parallel' if power.get('parallel', True) else 'lobes vote one after the other'}"]
     loaded = power.get("loaded") or []
     lines.append("    loaded  " + (", ".join(loaded) if loaded else "no local model loaded right now"))
+    lines += [""] + locker_lines(workers)
     lines += ["", "  Currents - how the work is distributed:"]
     done = {w["name"]: max(0, w["calls"] - w.get("unavailable", 0)) for w in workers}
     total = sum(done.values())

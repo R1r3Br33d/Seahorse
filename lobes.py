@@ -348,6 +348,10 @@ def record(result):
     s.setdefault("how", {})[how] = s["how"].get(how, 0) + 1
     if result.approach:
         s.setdefault("approach", {})[result.approach] = s["approach"].get(result.approach, 0) + 1
+    won = {b.side for b in result.ballots if b.vote == result.approach}
+    if len(won) == 1 and not result.cached:   # one hemisphere carried the vote: the hourglass tips its way
+        side = won.pop()
+        s.setdefault("hemisphere", {})[side] = s["hemisphere"].get(side, 0) + 1
     if result.ruling and not result.cached:
         s["judge_calls"] = s.get("judge_calls", 0) + 1
     if result.cached:

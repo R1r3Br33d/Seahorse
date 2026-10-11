@@ -317,6 +317,13 @@ The crew is paid in pirate coin and the treasures of the sea.
   - **Processing power**: CPU cores, free memory, GPU (NVIDIA or Apple
     Silicon), the local context window, and which local models are loaded and
     whether they sit on the GPU or the CPU.
+  - **Davy Jones' Locker**: the void at the centre of the earth, where
+    mussels fed on electric-eel blood grow as wide as satellite dishes and
+    shift between the hemispheres like sand in a giant hourglass. Their pulse
+    at the core churns the ocean and drives every current. In Seahorse the
+    pulse is every call the workers answered, and the hourglass is the two
+    lobes: it tips toward whichever hemisphere has carried more votes on its
+    own. `/locker` (or `/core`) shows it on its own.
   - **Currents**: how the work is distributed: calls each worker (Claude, the
     local model) answered, characters produced and speed, and which crew
     members carried the work.
