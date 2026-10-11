@@ -201,7 +201,7 @@ def behaviour_metrics(chats_dir=CHATS_DIR):
         except (OSError, json.JSONDecodeError):
             continue
         if data.get("incognito"):
-            continue  # incognito chats are never used
+            continue  # chats from the old incognito mode stay unused
         users = [m["content"] for m in data.get("messages", []) if m.get("role") == "user"
                  and not m["content"].startswith("[calculator results]")]
         if not users:

@@ -66,7 +66,7 @@ Your control
     Everything is in one local SQLite file, ~/.seahorse/memory.db, readable
     only by you. Every change is written to an audit log saying what changed
     and why. You can list, search, edit, pin, forget, restore, export or wipe
-    memories, or go incognito for a chat.
+    memories.
 
 Run directly:
     python3 memory.py                 statistics

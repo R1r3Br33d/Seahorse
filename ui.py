@@ -65,6 +65,11 @@ DEFAULTS = {
     "lobe_timeout": 45,        # seconds before a slow lobe abstains
     "lobe_margin": 0.25,       # how close a vote counts as a split for the Judge
     "lobe_parallel": True,     # both lobes vote at once
+    "council": True,           # all ten agents vote on who answers in auto mode
+    "council_steps": 3,        # most agents in one relay
+    "council_approval": True,  # approval vote between relay steps
+    "council_threshold": 0.66, # share of approvers needed to continue
+    "council_revisions": 1,    # times a step can be sent back
 }
 
 THEMES = {

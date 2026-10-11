@@ -96,7 +96,7 @@ function codeBlock(code, lang, open) {
   const lines = code.split("\n").length;
   return `<div class="code${open ? " streaming" : ""}"><div class="code-head"><span>${esc(lang || "text")}</span>` +
     `<span class="code-meta">${lines} line${lines === 1 ? "" : "s"}</span>` +
-    `<button type="button" class="copy" data-copy="${id}">Copy</button></div>` +
+    `<button type="button" class="copy" data-copy="${id}">${glyph("copy", 13)}<span>Copy</span></button></div>` +
     `<pre><code>${highlight(code, lang)}</code></pre></div>`;
 }
 
@@ -193,10 +193,11 @@ document.addEventListener("click", async e => {
     try { document.execCommand("copy"); } catch { /* ignore */ }
     t.remove();
   }
-  const was = btn.textContent;
-  btn.textContent = "Copied ✓";
+  const label = btn.querySelector("span") || btn;
+  const was = label.textContent;
+  label.textContent = "Copied ✓";
   btn.classList.add("done");
-  setTimeout(() => { btn.textContent = was; btn.classList.remove("done"); }, 1400);
+  setTimeout(() => { label.textContent = was; btn.classList.remove("done"); }, 1400);
 });
 
 // ------------------------------------------------------------------ scrolling
@@ -247,9 +248,9 @@ function applyState(state) {
   const c = STATE.character;
   $("#greeting").textContent = c.enabled ? c.greeting : "";
   $("#chatTileName").textContent = `Chat with ${c.name}${c.epithet ? ", " + c.epithet : ""}`;
-  $("#portraitBtn").textContent = `Portrait of ${c.epithet || c.name} from the 11 steps`;
-  $("#modePill").textContent = { auto: "Claude first · local when offline", claude: "Claude only", local: "local only" }[STATE.mode] || STATE.mode;
-  $("#incognitoBtn").textContent = STATE.incognito ? "Incognito on" : "Incognito off";
+  $("#portraitText").textContent = `Portrait of ${c.epithet || c.name} from the 11 steps`;
+  $("#modeText").textContent = { auto: "Claude first · local when offline", claude: "Claude only", local: "local only" }[STATE.mode] || STATE.mode;
+  $("#modeGlyph").innerHTML = glyph(STATE.mode === "local" ? "sloop" : "cloud", 15);
   renderAgents();
   if (!$("#messages").childElementCount) renderHistory();
 }
@@ -262,10 +263,11 @@ function renderAgents() {
     const li = document.createElement("li");
     const b = document.createElement("button");
     b.className = "agent-btn" + ((STATE.agentMode === a.name) ? " active" : "");
-    b.innerHTML = `<span class="agent-icon">${esc(a.icon)}</span><span><span class="agent-name">${esc(a.name)}</span>` +
+    b.innerHTML = `<span class="agent-icon">${agentGlyph(a.name, 18)}</span><span><span class="agent-name">${esc(a.name)}</span>` +
       (a.crew ? `<span class="agent-crew">${esc(a.seal?.sign || "")} ${esc(a.crew)}</span>` : "") +
       `<span class="agent-purpose">${esc(a.purpose || a.description || "")}</span></span>`;
     $(".agent-icon", b).style.color = a.color;
+    b.style.setProperty("--agent", a.color);
     $(".agent-name", b).style.color = a.color;
     b.title = a.skill || "";
     b.addEventListener("click", async () => {
@@ -358,12 +360,12 @@ function botBubble(agentName, via, ev = {}) {
   // A live reply says who's answering and their seal; earlier replies use the agent's current crew member.
   const crewName = ev.crew !== undefined ? ev.crew : (a.crew && agentName !== "hippocampus" ? a.crew : "");
   const seal = ev.seal || (a.seal && a.seal.sign ? { ...a.seal, name: a.crew } : null);
-  const el = addEl("msg-bot", `<div class="bot-head"><b>${esc(a.icon)} ${esc(a.name)}</b>` +
+  const el = addEl("msg-bot", `<div class="bot-head"><b class="who">${agentGlyph(agentName, 16)}<span>${esc(a.name)}</span></b>` +
     (crewName ? `<span class="crew-tag">${esc(crewName)}</span>` : "") +
     `<span class="via">${esc(via || "")}</span></div>` +
     `<div class="bot-body"></div><div class="bot-foot">` +
     (seal && typeof sealSVG === "function" ? `<span class="foot-seal" title="${esc(seal.stamp || "")}">${sealSVG(seal.sign, seal.motto, a.color, 34, seal.name)}</span>` : "") +
-    `<span class="stamp"></span><button type="button" class="copy ghost" data-copy-reply>Copy reply</button></div>`);
+    `<span class="stamp"></span><button type="button" class="copy ghost" data-copy-reply>${glyph("copy", 13)}<span>Copy reply</span></button></div>`);
   $("b", el).style.color = a.color;
   el.style.setProperty("--agent", a.color);
   return el;
@@ -382,7 +384,7 @@ function renderHistory() {
   box.innerHTML = "";
   if (!STATE.history.length) {
     const c = STATE.character;
-    addEl("welcome", `<div class="big-mark">Ψ</div><p>${esc(c.enabled ? c.greeting : "Say something to begin.")}</p>` +
+    addEl("welcome", `<div class="big-mark bob">${glyph("seahorse", 60)}</div><p class="welcome-line">${esc(c.enabled ? c.greeting : "Say something to begin.")}</p>` +
       `<p class="small">Every agent reads what you write in its own way. Ask anything, or type <code>/help</code>.</p>`);
     return;
   }
@@ -395,8 +397,8 @@ function renderHistory() {
 
 function thinkingEl(agentName) {
   const a = agentInfo(agentName);
-  const el = addEl("thinking", `<span class="trident">Ψ</span><span>${esc(a.name)} is thinking</span><span class="bubbles"></span>`);
-  $(".trident", el).style.color = a.color;
+  const el = addEl("thinking", `<span class="bob">${agentGlyph(agentName, 18)}</span><span>${esc(a.name)} is thinking</span><span class="bubbles"></span>`);
+  $(".bob", el).style.color = a.color;
   return el;
 }
 
@@ -417,7 +419,7 @@ async function send(text) {
         for (const c of ev.chips) {
           const chip = document.createElement("span");
           chip.className = "chip";
-          chip.innerHTML = `<b>${esc(c.icon)}</b> ${esc(c.category)}`;
+          chip.innerHTML = `<b>${agentGlyph(c.agent, 12)}</b> ${esc(c.category)}`;
           $("b", chip).style.color = c.color;
           chip.style.borderColor = c.catColor + "66";
           chip.title = `${c.agent} noticed ${c.category}`;
@@ -426,13 +428,13 @@ async function send(text) {
       } else if (ev.type === "conscience" && bubble) {
         const c = document.createElement("div");
         c.className = "conscience";
-        c.innerHTML = `<b>${esc(ev.icon)} on second thought</b> ${md(ev.text)}`;
+        c.innerHTML = `<b class="with-glyph">${glyph("pearl", 15)} on second thought</b> ${md(ev.text)}`;
         $("b", c).style.color = ev.color;
         bubble.appendChild(c);
       } else if (ev.type === "magic") {
         thinking?.remove(); thinking = null;
         const m = addEl("magic");
-        m.innerHTML = `<div class="magic-head"><b>${esc(ev.icon)} ${esc(ev.name)}</b><span>Bureau of Magic</span></div><div>${md(ev.text)}</div>` +
+        m.innerHTML = `<div class="magic-head"><b class="with-glyph">${glyph("starfish", 16)} ${esc(ev.name)}</b><span>Bureau of Magic</span></div><div>${md(ev.text)}</div>` +
           (ev.dept === "riddle" ? `<div class="magic-hint">type /magic reveal for the answer</div>` : "");
         $("b", m).style.color = ev.color;
         m.style.borderColor = ev.color + "88";
@@ -440,7 +442,10 @@ async function send(text) {
         thinking?.remove(); thinking = null;
         const d = document.createElement("details");
         d.className = "sub-note";
-        d.innerHTML = `<summary><b>${esc(ev.icon)} ${esc(ev.name)}</b> <span>${ev.lobe ? "" : esc(ev.agent) + "'s brain"}</span></summary><div>${md(ev.text)}</div>`;
+        const kindGlyph = { council: glyph("compass", 15), step: agentGlyph(ev.agent, 15), approval: glyph("scales", 15) }[ev.kind];
+        const mark = kindGlyph || (ev.lobe ? glyph(ev.name.startsWith("lobe vote") ? "bottle" : "coral", 15)
+          : `<span class="sub-sign">${esc(ev.icon)}</span>`);
+        d.innerHTML = `<summary><b class="with-glyph">${mark} ${esc(ev.name)}</b> <span>${ev.lobe ? "" : esc(ev.agent) + "'s brain"}</span></summary><div>${md(ev.text)}</div>`;
         $("b", d).style.color = ev.color;
         d.style.borderLeftColor = ev.color;
         $("#messages").appendChild(d);
@@ -530,12 +535,6 @@ $("#endChat").addEventListener("click", async () => {
   } catch (e) { t.remove(); toast(e.message); }
   finally { busy = false; }
 });
-$("#incognitoBtn").addEventListener("click", async () => {
-  const r = await api("/api/command", { line: "/incognito" });
-  if (r.state) STATE = r.state;
-  $("#incognitoBtn").textContent = STATE.incognito ? "Incognito on" : "Incognito off";
-  toast(r.output.replace(/^~\s*/, ""));
-});
 
 // ------------------------------------------------------------------ images
 let ENGINES = [];
@@ -603,10 +602,10 @@ function showImage(meta, loadSettings) {
 }
 
 function busyButton(btn, label) {
-  const old = btn.textContent;
+  const old = btn.innerHTML;
   btn.disabled = true;
-  btn.innerHTML = `<span class="trident">Ψ</span> ${esc(label)}`;
-  return () => { btn.disabled = false; btn.textContent = old; };
+  btn.innerHTML = `<span class="bob">${glyph("seahorse", 15)}</span> ${esc(label)}`;
+  return () => { btn.disabled = false; btn.innerHTML = old; };
 }
 
 $("#improveBtn").addEventListener("click", async () => {
@@ -638,7 +637,7 @@ $("#imgForm").addEventListener("submit", async e => {
   e.preventDefault();
   const [w, h] = $("#size").value.split("x").map(Number);
   const done = busyButton($("#genBtn"), "painting…");
-  $("#preview").innerHTML = `<div class="empty"><span class="big-mark trident">Ψ</span><p>Painting on your machine…</p></div>`;
+  $("#preview").innerHTML = `<div class="empty"><span class="big-mark bob">${glyph("porthole", 56)}</span><p>Painting on your machine…</p></div>`;
   try {
     const meta = await api("/api/images/generate", {
       prompt: $("#prompt").value, negative: $("#negative").value, width: w, height: h,
@@ -648,7 +647,7 @@ $("#imgForm").addEventListener("submit", async e => {
     showImage(meta, false);
     loadImages();
   } catch (err) {
-    $("#preview").innerHTML = `<div class="empty"><span class="big-mark">Ψ</span><p>${esc(err.message)}</p></div>`;
+    $("#preview").innerHTML = `<div class="empty"><span class="big-mark">${glyph("porthole", 56)}</span><p>${esc(err.message)}</p></div>`;
   } finally { done(); }
 });
 

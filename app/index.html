@@ -10,14 +10,14 @@
 </head>
 <body>
 <header class="topbar">
-  <div class="brand"><span class="mark">Ψ</span><span class="word">SEAHORSE</span></div>
+  <div class="brand"><span class="mark"><i data-glyph="seahorse" data-size="26"></i></span><span class="word">SEAHORSE</span></div>
   <nav class="tabs" role="tablist">
-    <button class="tab active" data-view="launcher" role="tab">Launcher</button>
-    <button class="tab" data-view="chat" role="tab">Chat</button>
-    <button class="tab" data-view="images" role="tab">Images</button>
-    <button class="tab" data-view="settings" role="tab">Settings</button>
+    <button class="tab active" data-view="launcher" role="tab"><i data-glyph="lighthouse" data-size="17"></i><span>Launcher</span></button>
+    <button class="tab" data-view="chat" role="tab"><i data-glyph="chat" data-size="17"></i><span>Chat</span></button>
+    <button class="tab" data-view="images" role="tab"><i data-glyph="porthole" data-size="17"></i><span>Images</span></button>
+    <button class="tab" data-view="settings" role="tab"><i data-glyph="wheel" data-size="17"></i><span>Settings</span></button>
   </nav>
-  <div class="status-pill" id="modePill">starting…</div>
+  <div class="status-pill" id="modePill"><span class="pill-glyph" id="modeGlyph"><i data-glyph="buoy" data-size="15"></i></span><span id="modeText">starting…</span></div>
 </header>
 
 <main>
@@ -37,7 +37,7 @@
       <div class="card env">
         <div class="card-head">
           <h2>Environment</h2>
-          <button class="ghost small" id="recheck">Check again</button>
+          <button class="ghost small with-glyph" id="recheck"><i data-glyph="buoy" data-size="15"></i>Check again</button>
         </div>
         <ul class="checks" id="checks"><li class="muted">Checking…</li></ul>
         <p class="muted small" id="dataDir"></p>
@@ -45,13 +45,13 @@
 
       <div class="apps">
         <button class="app-tile" data-open="chat">
-          <span class="tile-icon">∫</span>
+          <span class="tile-icon"><i data-glyph="chat" data-size="30"></i></span>
           <span class="tile-name" id="chatTileName">Chat</span>
           <span class="tile-desc">Talk with Seahorse and his ten agents. Memory, notebooks and his portrait of you come along.</span>
           <span class="tile-go">Open chat →</span>
         </button>
         <button class="app-tile" data-open="images">
-          <span class="tile-icon">◎</span>
+          <span class="tile-icon"><i data-glyph="porthole" data-size="30"></i></span>
           <span class="tile-name">Image generator</span>
           <span class="tile-desc">Make images on your own machine, let Seahorse sharpen a prompt, or paint his portrait from the 11 character steps.</span>
           <span class="tile-go">Open images →</span>
@@ -67,17 +67,16 @@
       <h3>Who answers</h3>
       <ul id="agentList"></ul>
       <div class="side-actions">
-        <button class="ghost small" id="endChat" title="Seahorse reflects, files memories and grows">End chat &amp; learn</button>
-        <button class="ghost small" id="incognitoBtn">Incognito off</button>
+        <button class="ghost small with-glyph" id="endChat" title="Seahorse reflects, files memories and grows"><i data-glyph="tide" data-size="16"></i>End chat &amp; learn</button>
       </div>
       <p class="muted tiny">Type <code>/help</code> for every command.</p>
     </aside>
     <div class="chat">
       <div class="messages" id="messages"></div>
-      <button type="button" class="jump" id="jump" title="Jump to the latest message">↓ Latest</button>
+      <button type="button" class="jump with-glyph" id="jump" title="Jump to the latest message"><i data-glyph="latest" data-size="15"></i>Latest</button>
       <form class="composer" id="composer">
         <textarea id="input" rows="1" placeholder="Talk to Seahorse…  (Enter to send, Shift+Enter for a new line, / for commands)"></textarea>
-        <button type="submit" class="primary" id="sendBtn">Send</button>
+        <button type="submit" class="primary send-btn" id="sendBtn" aria-label="Send"><i data-glyph="fish" data-size="20"></i><span>Send</span></button>
       </form>
     </div>
   </section>
@@ -88,8 +87,8 @@
       <label for="prompt">Prompt</label>
       <textarea id="prompt" rows="5" placeholder="A lone sloop under a green moon, Port Royal at night…"></textarea>
       <div class="row">
-        <button type="button" class="ghost small" id="improveBtn">Ask Seahorse to improve it</button>
-        <button type="button" class="ghost small" id="portraitBtn">Portrait from the 11 steps</button>
+        <button type="button" class="ghost small with-glyph" id="improveBtn"><i data-glyph="starfish" data-size="15"></i>Ask Seahorse to improve it</button>
+        <button type="button" class="ghost small with-glyph" id="portraitBtn"><i data-glyph="seahorse" data-size="15"></i><span id="portraitText">Portrait from the 11 steps</span></button>
       </div>
       <ol class="steps hidden" id="portraitSteps"></ol>
       <label for="negative">Avoid</label>
@@ -117,7 +116,7 @@
     <div class="img-out">
       <div class="preview card" id="preview">
         <div class="empty" id="previewEmpty">
-          <span class="big-mark">Ψ</span>
+          <span class="big-mark"><i data-glyph="porthole" data-size="56"></i></span>
           <p>Your image will surface here.</p>
         </div>
       </div>
@@ -130,19 +129,20 @@
   <section class="view" id="view-settings">
     <div class="settings">
       <aside class="set-nav">
-        <label class="set-search"><span aria-hidden="true">⌕</span>
+        <label class="set-search"><i data-glyph="search" data-size="16"></i>
           <input id="setSearch" type="search" placeholder="Find a setting" autocomplete="off"></label>
         <ul id="setNav"></ul>
         <p class="muted tiny set-saved" id="setSaved" aria-live="polite"></p>
       </aside>
       <div class="set-main" id="setMain">
-        <div class="empty"><span class="big-mark trident">Ψ</span><p>Loading settings…</p></div>
+        <div class="empty"><span class="big-mark bob"><i data-glyph="wheel" data-size="48"></i></span><p>Loading settings…</p></div>
       </div>
     </div>
   </section>
 </main>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="/glyphs.js"></script>
 <script src="/app.js"></script>
 <script src="/settings.js"></script>
 </body>

@@ -10,6 +10,12 @@ let CREW_DRAFT = null;
 let SEAL_ID = 0;
 let FIELD_ID = 0;
 
+// Each settings section's glyph.
+const SECTION_GLYPH = {
+  general: "compass", council: "scales", models: "cloud", character: "seahorse", crew: "anchor", lobes: "coral", brains: "knot",
+  inner: "pearl", privacy: "mask", look: "starfish", images: "porthole", data: "logbook",
+};
+
 const EXTRA_SECTIONS = {
   crew: { id: "crew", title: "Crew", icon: "⚓", blurb: "Every agent is a member of the Seahorse's crew, built from the same 11 steps as the captain." },
   data: { id: "data", title: "Data & about", icon: "▣", blurb: "Where everything lives, and putting settings back to their defaults." },
@@ -36,7 +42,7 @@ async function loadSettings() {
   try {
     SET = await api("/api/settings");
   } catch (e) {
-    $("#setMain").innerHTML = `<div class="empty"><span class="big-mark">Ψ</span><p>${esc(e.message)}</p></div>`;
+    $("#setMain").innerHTML = `<div class="empty"><span class="big-mark">${glyph("wheel", 48)}</span><p>${esc(e.message)}</p></div>`;
     return;
   }
   renderSetNav();
@@ -59,7 +65,7 @@ function renderSetNav() {
   for (const s of sectionList()) {
     const li = document.createElement("li");
     li.innerHTML = `<button type="button" class="set-nav-btn${s.id === SET_SECTION ? " active" : ""}">` +
-      `<span class="set-nav-icon">${esc(s.icon)}</span><span>${esc(s.title)}</span></button>`;
+      `<span class="set-nav-icon">${glyph(SECTION_GLYPH[s.id] || "wheel", 16)}</span><span>${esc(s.title)}</span></button>`;
     $("button", li).addEventListener("click", () => {
       SET_SECTION = s.id;
       CREW_SEL = null;
@@ -85,11 +91,17 @@ function renderSection() {
   main.appendChild(box);
   if (s.id === "lobes") main.appendChild(lobesExtras());
   if (s.id === "character") main.appendChild(characterExtras());
+  if (s.id === "council") {
+    const card = document.createElement("div");
+    card.className = "set-card";
+    card.innerHTML = `<h3 class="set-card-title">How the council has voted</h3><pre class="prompt-preview">${esc(SET.councilStats || "")}</pre>`;
+    main.appendChild(card);
+  }
   if (s.id === "models") main.appendChild(note("Changing the base model or the character rebuilds the local 'seahorse' model in the background when Ollama is running."));
 }
 
 function sectionHead(s) {
-  return `<header class="set-head"><span class="set-head-icon">${esc(s.icon)}</span><div><h2>${esc(s.title)}</h2>` +
+  return `<header class="set-head"><span class="set-head-icon">${glyph(SECTION_GLYPH[s.id] || "wheel", 24)}</span><div><h2>${esc(s.title)}</h2>` +
     `<p class="muted">${esc(s.blurb || "")}</p></div></header>`;
 }
 
@@ -218,7 +230,7 @@ $("#setSearch").addEventListener("input", () => {
   if (!SET) return;
   if (!q) return renderSection();
   const main = $("#setMain");
-  main.innerHTML = `<header class="set-head"><span class="set-head-icon">⌕</span><div><h2>Results for “${esc(q)}”</h2></div></header>`;
+  main.innerHTML = `<header class="set-head"><span class="set-head-icon">${glyph("search", 24)}</span><div><h2>Results for “${esc(q)}”</h2></div></header>`;
   let hits = 0;
   for (const s of SET.sections) {
     const fields = s.fields.filter(f => (f.label + " " + (f.help || "") + " " + f.key).toLowerCase().includes(q));
@@ -539,7 +551,7 @@ async function resetCrew() {
 async function testCrew() {
   const out = $("#crewReply");
   const text = $("#crewAsk").value.trim();
-  out.innerHTML = `<span class="thinking"><span class="trident">Ψ</span> ${esc(CREW_DRAFT.name)} is thinking</span>`;
+  out.innerHTML = `<span class="thinking"><span class="bob">${agentGlyph(CREW_SEL, 16)}</span> ${esc(CREW_DRAFT.name)} is thinking</span>`;
   try {
     const r = await api("/api/crew/test", { agent: CREW_SEL, text });
     out.innerHTML = md(r.reply);

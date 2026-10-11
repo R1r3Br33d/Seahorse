@@ -39,6 +39,7 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
+import council
 import crew
 import lobes
 import ui
@@ -332,7 +333,6 @@ class Session:
         self.usage = {}              # agent -> turns handled since the last reflection
         self.memory = memory         # long-term memory (MemoryStore) or None
         self.working = WorkingMemory()
-        self.incognito = False       # True: nothing from this chat is remembered or learned
         self.pinned_context = []     # episodes brought back with /revisit
         self.cortex = cortex         # agents' notebooks and the collective summary tree
         self.profile = profile       # Seahorse's opinionated profile of the user
@@ -344,7 +344,7 @@ class Session:
 
     # ------------------------------------------------------------------ prompts
     def memory_on(self):
-        return self.memory is not None and not self.incognito
+        return self.memory is not None
 
     def system_for(self, agent, active_skills, query=""):
         if self.system_override:
@@ -602,6 +602,7 @@ class Session:
         system = self.system_for(agent, active_skills, " ".join(self.user_texts(messages)[-2:]))
         system += self.inner_council(agent, system, messages)
         system += self.lobe_council(agent, system, messages)
+        system += self.pop_relay_notes()
         final = None
         for round_no in range(MAX_CALC_ROUNDS + 1):
             text, status = self._stream(agent, system, messages)
@@ -674,9 +675,9 @@ class Session:
                 note = str(data["note"]).strip()
                 self.show_conscience(note)
                 self.messages[-1]["content"] = reply + "\n\n*On second thought:* " + note
-            if isinstance(data, dict) and not self.incognito:
+            if isinstance(data, dict):
                 self.agency.record_lesson(data.get("lesson", ""))
-        if not self.incognito and self.agency.magic_due(user_text, len(self.user_texts())):
+        if self.agency.magic_due(user_text, len(self.user_texts())):
             recent = "\n".join(f"{m['role']}: {m['content'][:400]}" for m in self.messages[-4:])
             got = self.conjure(None, recent)
             if got:
@@ -697,7 +698,7 @@ class Session:
 
     def perceive(self, text):
         """Every agent reads the message through its own lens and files notes."""
-        if not self.cortex or self.incognito:
+        if not self.cortex:
             return
         found = self.cortex.perceive(text, list(self.agents.agents),
                                      previous_agent=self.agent.name if self.messages else None)
@@ -709,6 +710,7 @@ class Session:
                 cats = "·".join(dict.fromkeys(f"{ui.c256(category_color(name, c))}{c}{RESET}" for c, _t in hits))
                 chips.append(f"{ui.agent_icon(name, color, agent.icon if agent else None)} {cats}")
             print(f"  {DIM}noticed{RESET} " + f"  ".join(chips))
+        return found
 
     def handle_memory_request(self, text):
         """React to 'remember that ...' / 'forget that ...' said in conversation."""
@@ -716,7 +718,7 @@ class Session:
         if not found:
             return
         if not self.memory_on():
-            ui.note("incognito is on, so nothing will be remembered" if self.incognito else "memory is off")
+            ui.note("memory is off")
             return
         kind, payload = found
         if kind == "remember":
@@ -741,14 +743,16 @@ class Session:
             print("Add a message after the agent's name, like: @broca draft a thank-you email\n")
             return
         self.handle_memory_request(text)
-        if agent is not None and not self.incognito:
+        if agent is not None:
             self.agents.router.learn(text, agent.name)  # you picked this agent: routing learns from it
         if agent is None and self.agent_mode == "auto" and detect_memory_command(text):
             agent = self.agents.default  # memory requests go to the hippocampus
-        self.perceive(text)
+        perceived = self.perceive(text) or {}
         if agent is None:
             if self.agent_mode != "auto":
                 agent = self.agents.get(self.agent_mode) or self.agents.default
+            elif self.config.get("council", True) is not False:
+                agent = self.council_turn(text, perceived)
             else:
                 agent = self.agents.route(text)
                 # Short follow-ups ("make it shorter") stay with the agent already working.
@@ -764,6 +768,77 @@ class Session:
         else:
             self._record(agent.name, start)
             self.after_reply(agent, text)
+
+    # ------------------------------------------------------------------ the council (auto mode)
+    def busy_with(self, label, agent=None):
+        """A 'working on it' indicator (the app shows it its own way)."""
+        return Spinner(label)
+
+    def council_turn(self, text, perceived):
+        """All ten agents vote on who takes the message; a relay runs if several have a strong claim.
+        Returns the agent who delivers the final answer."""
+        pick = self.agents.router.predict(text, self.agents.agents)
+        d = council.decide(self.agents.agents, text, pick if pick[0] and pick[1] >= 0.5 else None, perceived,
+                           previous=self.agent.name if self.messages else None, has_history=bool(self.messages),
+                           max_steps=int(self.config.get("council_steps", council.DEFAULTS["council_steps"])))
+        council.record(d)
+        self.show_sub(self.agents.default, {"name": "council vote", "icon": "⚑", "color": 252, "lobe": True,
+                                            "kind": "council"}, "\n".join(d.lines()))
+        if len(d.steps) > 1:
+            progress, concerns = self.run_relay(text, d.steps)
+            self.relay_notes = council.final_notes(progress, concerns)
+        return self.agents.get(d.steps[-1]) or self.agents.default
+
+    def run_relay(self, text, steps):
+        """Progressional continuation: each step builds on the last; an approval vote gates every handoff."""
+        cfg = self.config
+        revisions = int(cfg.get("council_revisions", council.DEFAULTS["council_revisions"]))
+        threshold = float(cfg.get("council_threshold", council.DEFAULTS["council_threshold"]))
+        approve_on = cfg.get("council_approval", True) is not False
+        done, concerns, total = [], [], len(steps)
+        for i, name in enumerate(steps[:-1], 1):
+            agent, nxt = self.agents.get(name), steps[i]
+            system = self.system_for(agent, self.skills_for(agent, [text]), text)
+            notes, work = "", None
+            for attempt in range(revisions + 1):
+                prompt = council.step_prompt(text, i, total, name, nxt, "\n\n".join(done), "\n".join(concerns), notes)
+                with self.busy_with(f"step {i}/{total} · {name} is working", agent):
+                    work = self._sub_call(agent, system, prompt)
+                if not work:
+                    break
+                self.show_sub(agent, {"name": f"step {i}/{total} · {name}", "icon": ui.icon_for(name, agent.icon),
+                                      "color": agent.color, "lobe": True, "kind": "step"}, work)
+                if not approve_on:
+                    break
+                voters = council.approvers(name, nxt)
+                judge = self.agents.get("judge") or agent
+                with self.busy_with(f"the crew is voting on step {i}", judge):
+                    raw = self._quick_call(judge, judge.slim_system(),
+                                           council.approval_prompt(text, name, council.PART.get(name, ""), work, nxt,
+                                                                   voters), 320)
+                votes = council.parse_approval(raw, voters)
+                ok = council.approved(votes, voters, threshold)
+                last = attempt == revisions
+                self.show_sub(agent, {"name": f"approval · step {i}", "icon": "✓", "color": 252, "lobe": True,
+                                      "kind": "approval"},
+                              council.approval_line(i, name, votes, ok, revised=not ok and last))
+                if ok:
+                    council.record(approvals=1)
+                    break
+                notes = "; ".join(f"{a}: {n}" for a, (v, n) in votes.items() if v == "revise" and n) or "tighten it up"
+                if last:
+                    council.record(carried=1)
+                    concerns.append(f"- step {i} ({name}): {notes}")
+                else:
+                    council.record(sent_back=1)
+            if not work:
+                break   # the next agent carries on with whatever progress exists
+            done.append(f"[step {i} · {name} - {council.PART.get(name, '')}]\n{work}")
+        return "\n\n".join(done), "\n".join(concerns)
+
+    def pop_relay_notes(self):
+        notes, self.relay_notes = getattr(self, "relay_notes", ""), ""
+        return notes
 
     def team(self, task):
         """Planner splits the task, specialists do their parts, Seahorse combines the results."""
@@ -815,12 +890,6 @@ class Session:
         if turns < 2:
             if verbose:
                 ui.note(f"Not enough new conversation to learn from yet."); print()
-            return
-        if self.incognito:
-            if verbose:
-                ui.note("incognito: Seahorse won't remember or learn from this chat")
-            self.reflected_upto = len(self.messages)
-            self.usage = {}
             return
         signals = {}
         reply = self.complete(self.persona.reflection_prompt(new), label="Seahorse is reflecting on this chat")
@@ -909,7 +978,7 @@ class Session:
             rep["traits"] = self.cortex.apply_trait_ideas(self.persona)
         finally:
             spinner.stop()
-        if self.profile and self.profile.enabled and not self.incognito:
+        if self.profile and self.profile.enabled:
             rep["profile"] = self.update_profile()
         return rep
 
@@ -1069,7 +1138,6 @@ class Session:
         path = self.chat_path
         path.write_text(json.dumps({
             "started": self.started.isoformat(),
-            "incognito": self.incognito,
             "messages": self.messages,
             "agents": {str(i): a for i, a in self.reply_agent.items()},  # who wrote each reply (for fine-tuning)
         }, indent=2))
@@ -1139,7 +1207,6 @@ HELP = f"""{BOLD}Commands{RESET}
   /memlog [n]               what changed in memory, and why
   /consolidate              tidy memory now (fade, merge, index)
   /export [file.md]         export all memories as Markdown
-  /incognito                don't remember or learn from this chat
   /wipe                     erase all memories (asks first)
 
 {BOLD}Fine-tuning{RESET}
@@ -1171,6 +1238,8 @@ HELP = f"""{BOLD}Commands{RESET}
   /build [step]             design him step by step: identity, backstory, tale, voice, strength,
                             mannerisms, spirit, rules, greetings, traits, preview (test + save)
   /persona [use|save|delete|new] <name>   saved personas (the Seahorse is built in)
+  /council                  how all ten agents voted on who answers (auto mode), and the stats
+  /council on|off · steps <n> · approval on|off · threshold <x> · revisions <n>   tune the council
   /crew                     his crew: every agent's character (name, post, greeting)
   /crew <agent>             one crew member in full: backstory, tale, voice, spirit...
   /build crew <agent> [step]   build a crew member with the same 11 steps
@@ -1240,17 +1309,11 @@ def status(session):
 
 
 MEMORY_COMMANDS = {"memory", "memories", "remember", "forget", "restore", "edit", "pin", "unpin",
-                   "episodes", "recall", "revisit", "memlog", "consolidate", "export", "incognito", "wipe"}
+                   "episodes", "recall", "revisit", "memlog", "consolidate", "export", "wipe"}
 
 
 def memory_command(session, cmd, arg):
     mem = session.memory
-    if cmd == "incognito":
-        session.incognito = not session.incognito
-        ui.note("incognito on: this chat won't be remembered or learned from" if session.incognito
-                else "incognito off: Seahorse will remember this chat")
-        print()
-        return
     if mem is None:
         ui.note("memory isn't available")
         print()
@@ -1270,7 +1333,6 @@ def memory_command(session, cmd, arg):
             ("search", search),
             ("tidied", datetime.fromtimestamp(last).strftime("%Y-%m-%d %H:%M") if last else "not yet"),
             ("stored", f"{st['path']} ({st['size_kb']} KB)"),
-            ("this chat", "incognito" if session.incognito else "remembering"),
         ], title="memory")
     elif cmd in ("memories", "notes"):
         if arg in CATEGORY_NAMES:
@@ -2128,6 +2190,8 @@ def handle_command(session, line):
         lobes_command(session, arg)
     elif cmd == "crew":
         crew_command(session, arg)
+    elif cmd == "council":
+        council_command(session, arg)
     elif cmd == "units":
         import units as U
         m = re.match(r"^\s*(-?[\d.]+(?:e-?\d+)?)\s+(.+?)\s+(?:to|in|->)\s+(.+?)\s*$", arg) or \
@@ -2269,6 +2333,44 @@ def load_extra_instructions():
         return SYSTEM_PROMPT_FILE.read_text().strip()
     except OSError:
         return ""
+
+
+def council_command(session, arg):
+    """/council, /council on|off, /council steps <n>, /council approval on|off, /council threshold <0.5-1>."""
+    cfg, words = session.config, arg.split()
+    if words in (["on"], ["off"]):
+        cfg["council"] = words[0] == "on"
+        ui.note("all ten agents vote on who answers in auto mode" if cfg["council"]
+                else "council off: auto mode routes by keywords alone")
+    elif words[:1] == ["steps"] and len(words) == 2 and words[1].isdigit():
+        cfg["council_steps"] = max(1, min(4, int(words[1])))
+        ui.note(f"relays use up to {cfg['council_steps']} agents" if cfg["council_steps"] > 1 else "no relays: one agent answers")
+    elif words[:1] == ["approval"] and words[1:] in (["on"], ["off"]):
+        cfg["council_approval"] = words[1] == "on"
+        ui.note("handoffs need the crew's approval" if cfg["council_approval"] else "handoffs pass without a vote")
+    elif words[:1] == ["threshold"] and len(words) == 2:
+        try:
+            cfg["council_threshold"] = max(0.34, min(1.0, float(words[1])))
+            ui.note(f"approval needs {cfg['council_threshold']:.0%} of the voters")
+        except ValueError:
+            ui.note("/council threshold 0.66")
+    elif words[:1] == ["revisions"] and len(words) == 2 and words[1].isdigit():
+        cfg["council_revisions"] = max(0, min(2, int(words[1])))
+        ui.note(f"a step can be sent back {cfg['council_revisions']} time(s)")
+    elif words == ["stats", "reset"]:
+        council.reset_stats()
+        ui.note("council stats cleared")
+        return print()
+    else:
+        on = cfg.get("council", True) is not False
+        ui.note(f"council {'on' if on else 'off'} (used in auto mode) · relays up to "
+                f"{cfg.get('council_steps', 3)} · approval {'on' if cfg.get('council_approval', True) is not False else 'off'} "
+                f"at {float(cfg.get('council_threshold', 0.66)):.0%} · {cfg.get('council_revisions', 1)} revision(s)")
+        print(council.describe_stats())
+        ui.note("/council on|off · steps <1-4> · approval on|off · threshold <0.34-1> · revisions <0-2> · stats reset")
+        return print()
+    ui.save_config(cfg)
+    print()
 
 
 def crew_command(session, arg):

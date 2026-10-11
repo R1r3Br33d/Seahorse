@@ -165,7 +165,11 @@ class WebSession(sh.Session):
     def show_sub(self, agent, sub, text):
         icon = ui.APP_ICONS.get(sub["name"].split(" ")[0], sub["icon"]) if sub.get("lobe") else sub["icon"]
         self.emit({"type": "sub", "agent": agent.name, "name": sub["name"], "icon": icon, "lobe": bool(sub.get("lobe")),
-                   "color": xterm_hex(sub["color"]), "text": text})
+                   "kind": sub.get("kind", ""), "color": xterm_hex(sub["color"]), "text": text})
+
+    def busy_with(self, label, agent=None):
+        self.emit({"type": "thinking", "agent": agent.name if agent else "hippocampus", "label": label})
+        return contextlib.nullcontext()
 
     def _agent_turn(self, agent, active_skills, messages):
         system = self.system_for(agent, active_skills, " ".join(self.user_texts(messages)[-2:]))
@@ -176,6 +180,7 @@ class WebSession(sh.Session):
         if self.lobes_on(agent) and len((self.user_texts(messages) or [""])[-1].split()) >= min_words:
             self.emit({"type": "thinking", "agent": agent.name, "label": "the lobes are voting"})
         system += self.lobe_council(agent, system, messages)
+        system += self.pop_relay_notes()
         final = None
         for round_no in range(sh.MAX_CALC_ROUNDS + 1):
             text, status = self._stream(agent, system, messages)
@@ -195,7 +200,7 @@ class WebSession(sh.Session):
         return final
 
     def perceive(self, text):
-        if not self.cortex or self.incognito:
+        if not self.cortex:
             return
         found = self.cortex.perceive(text, list(self.agents.agents),
                                      previous_agent=self.agent.name if self.messages else None)
@@ -208,6 +213,7 @@ class WebSession(sh.Session):
                               "catColor": xterm_hex(category_color(name, cat))})
         if chips:
             self.emit({"type": "noticed", "chips": chips})
+        return found
 
     def handle_memory_request(self, text):
         out = io.StringIO()
@@ -567,7 +573,6 @@ def app_state(session):
         "theme": {k: xterm_hex(t[k]) for k in ("foam", "aqua", "teal", "sea", "deep", "coral", "sand", "kelp")},
         "logo": {"art": ui.SEAHORSE_ART, "title": ui._title_rows()},
         "history": history,
-        "incognito": session.incognito,
         "mode": session.mode,
     }
 
@@ -661,7 +666,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, html, "text/html; charset=utf-8",
                               {"Content-Security-Policy": "default-src 'self'; img-src 'self' data:; "
                                                           "style-src 'self' 'unsafe-inline'; script-src 'self'"})
-        if path in ("/app.js", "/settings.js", "/style.css", "/settings.css"):
+        if path in ("/app.js", "/settings.js", "/glyphs.js", "/style.css", "/settings.css"):
             ctype = "text/javascript" if path.endswith(".js") else "text/css"
             return self._send(200, (STATIC / path[1:]).read_bytes(), f"{ctype}; charset=utf-8")
         if path.startswith("/images/"):

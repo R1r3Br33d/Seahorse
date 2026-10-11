@@ -2,7 +2,7 @@
 """
 finetune.py - fine-tune Seahorse's local model on your own conversations.
 
-Seahorse learns from every chat you have (unless it's incognito). This turns
+Seahorse learns from every chat you have. This turns
 those chats into training data and trains a LoRA adapter on the local model,
 so the local brain itself picks up the Seahorse's voice, how each agent
 answers, and how you like things done - not just through instructions in the
@@ -23,7 +23,7 @@ THE DATASET
     system prompt of the agent who wrote it (personality, character, role and
     skills) and up to the six messages before it, so the model learns each
     agent's voice separately. Filters:
-      - incognito chats are never used
+      - chats saved while the old incognito mode was on are never used
       - replies you corrected next ("no, actually...", "that's wrong") are dropped
       - replies you thanked or praised count twice
       - anything containing a password, key or card number is dropped

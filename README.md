@@ -25,6 +25,12 @@ computer: a private server on 127.0.0.1 that only this window can use.
   *Ask Seahorse to improve it* sharpens a prompt; *Portrait from the 11 steps*
   writes a portrait of the current character from every builder step. Images
   and their settings are saved in `~/.seahorse/images`.
+The app is drawn with **Oceanic Glyphs**, 31 line icons on one 24px grid:
+each agent has the tool of their post (quill, sextant, hammer, knot, flag,
+anchor, caduceus, spyglass, scales, and the captain's seahorse), and the
+tabs, buttons and status use the ship's fittings (lighthouse, porthole,
+ship's wheel, fish to send, buoy for online, sloop for the local model).
+
 - **Settings**: every setting in one place, saved as you change it and checked
   before it's used. Sections: General, Models & limits (Claude model, an API
   key held for this run only, local model, reply length, continuations,
@@ -75,13 +81,14 @@ Seahorse: memory, notebooks, profile and character.
 | File | What it does |
 |---|---|
 | `seahorse_app.py` | The desktop app: launcher, chat and image generator |
-| `app/` | The app's screens (HTML, CSS, JavaScript) |
+| `app/` | The app's screens (HTML, CSS, JavaScript) and `glyphs.js`, the Oceanic Glyphs icon set |
 | `Seahorse.command`, `Seahorse.bat`, `seahorse.sh` | Double-click launchers |
 | `seahorse.py` | Seahorse itself, and the terminal version |
 | `personality.py` | Traits that grow over time; writes the Ollama `Modelfile` |
 | `memory.py` | Long-term memory: facts, past conversations, condensing long chats |
 | `agents.py` | The ten agents, defined once in a compact table: eight brain regions, plus Doc and Fiery Black as the left and right lobes |
 | `crew.py` | The crew: a character for every agent from the 11 steps, their notary seals, the loyalty pledge and the chant |
+| `council.py` | The council: all ten agents vote on who answers, relays with approval steps |
 | `lobes.py` | The lobe vote: Doc and Fiery Black ballot in parallel, the tally, and the Judge on close splits |
 | `settings.py` | Every setting described once, validated and applied (the app's Settings tab) |
 | `agency.py` | His inner voice (conscience, journal, self-model) and the Bureau of Magic |
@@ -95,8 +102,8 @@ Seahorse: memory, notebooks, profile and character.
 | `Modelfile` | Starter Ollama model definition (`ollama create seahorse -f Modelfile`) |
 
 Your data lives in `~/.seahorse/`: `memory.db`, `cortex.db`, `profile.db`, `personality.json`,
-`config.json` (settings), `crew.json` (your crew edits), `lobes.json` (vote
-stats), saved chats, and editable `agents/` and `skills/` folders.
+`config.json` (settings), `crew.json` (your crew edits), `lobes.json` and
+`council.json` (vote stats), saved chats, and editable `agents/` and `skills/` folders.
 
 ## Who Seahorse is
 
@@ -217,6 +224,33 @@ pledge makes loyalty mean honesty: it never means flattery, agreeing with
 something harmful, or keeping quiet about a real risk. Edit either in
 Settings → Crew.
 
+### The council (auto mode)
+
+In auto mode, all ten agents decide together who answers each message.
+
+1. **The vote.** Every agent stakes a claim: its trigger words, what routing
+   has learned from your own `@` picks, what its lens noticed, and whether
+   it's already working on this. Then all ten vote. An agent with a real claim
+   backs itself; the rest back the strongest claim; on short follow-ups the
+   captain votes to keep whoever is already on it. Most votes leads. The vote
+   is instant: no model call.
+2. **The relay (progressional continuation).** When several agents have a
+   strong claim, say "research the Port Royal earthquake and write it up as a
+   blog post", the work passes hand to hand in the order a ship works:
+   research, measures and numbers, planning, building, security, teaching,
+   writing, review. Each step builds on the progress before it, and the last
+   agent delivers the answer (up to 3 agents by default).
+3. **The approval step.** Before work moves on, the next agent, the Bosun and
+   the Judge vote on it in one short call. Two of three approvals and it
+   continues; otherwise it's sent back once with their notes. It never
+   stalls: concerns that remain travel forward for the next agent to fix.
+
+Most messages have one clear owner, so the council usually costs nothing
+extra. The vote, each relay step and each approval show as notes you can
+open. `/council` shows the last vote and the stats; `/council steps <1-4>`,
+`/council approval on|off`, `/council threshold <x>`, `/council revisions <n>`
+and `/council off` tune it, or use Settings → Council.
+
 ### The two lobes and the vote
 
 Doc is Seahorse's **left lobe** (analysis, language, facts, logic) and Fiery
@@ -324,7 +358,7 @@ like, not just instructions in the prompt.
 1. `/finetune prepare` builds the dataset from your saved chats. Each reply
    becomes an example with its own agent's system prompt. Replies you corrected
    next are dropped, replies you thanked count twice, anything with a password
-   or key is dropped, incognito chats are never used, and 10% of chats are held
+   or key is dropped, chats from the old incognito mode are never used, and 10% of chats are held
    out for testing. Aim for 50+ examples.
 2. `/finetune distill` (optional, uses your Claude key) has Claude answer the
    questions from your chats as each agent, so the local model learns from
@@ -385,8 +419,8 @@ to work with you, which it follows in every reply.
   indirect cues. Only each domain's "how to help" rule reaches the model, and
   exports leave them out unless you use `/profile export all`.
   `/profile domain <name> wipe` erases one.
-- Incognito chats are never used. `/profile off` pauses it, `/profile wipe`
-  erases it.
+- `/profile off` pauses it, `/profile wipe` erases it. Chats saved under the
+  old incognito mode are never used.
 
 ## Look and starting state
 
@@ -414,8 +448,9 @@ is saved in `~/.seahorse/config.json`. The first run shows a welcome screen
   and events, each with an importance and a strength that fades with disuse.
 
 Say "remember that ..." or "forget that ...", or use `/memories`, `/recall`,
-`/episodes`, `/pin`, `/edit`, `/forget`, `/restore`, `/memlog`, `/export`,
-`/incognito` and `/wipe`. Passwords, keys and card numbers are never stored.
+`/episodes`, `/pin`, `/edit`, `/forget`, `/restore`, `/memlog`, `/export`
+and `/wipe`. There is no incognito mode: every chat is remembered and learned
+from (use `/forget` or `/wipe` to remove things). Passwords, keys and card numbers are never stored.
 Type `/help` in Seahorse for every command.
 
 ## Updating

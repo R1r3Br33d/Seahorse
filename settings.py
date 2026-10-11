@@ -37,8 +37,6 @@ SECTIONS = [
          {"key": "backend_mode", "label": "Models", "kind": "segmented",
           "options": [["auto", "Claude first"], ["claude", "Claude only"], ["local", "Local only"]],
           "help": "Auto uses Claude when it's reachable and your local model when it isn't."},
-         {"key": "incognito", "label": "Incognito chat", "kind": "toggle", "where": "session",
-          "help": "This chat won't be remembered, learned from or added to his profile of you."},
      ]},
     {"id": "models", "title": "Models & limits", "icon": "⚙",
      "blurb": "Which models he runs on and how far each reply may go. Environment variables, if set, still win.",
@@ -96,6 +94,20 @@ SECTIONS = [
          {"key": "lobe_cache", "label": "Reuse identical votes", "kind": "toggle",
           "help": "Asking the same thing again reuses the last vote instantly."},
      ]},
+    {"id": "council", "title": "Council", "icon": "⚑",
+     "blurb": "In auto mode, all ten agents vote on who answers. Strong claims form a relay; an approval vote gates each handoff.",
+     "fields": [
+         {"key": "council", "label": "Council vote", "kind": "toggle",
+          "help": "Off, auto mode routes by keywords alone. The vote itself is instant: no model call."},
+         {"key": "council_steps", "label": "Most agents in a relay", "kind": "number", "min": 1, "max": 4,
+          "help": "1 means one agent always answers alone. Each extra step is one more model call."},
+         {"key": "council_approval", "label": "Approval before each handoff", "kind": "toggle",
+          "help": "The next agent, the Bosun and the Judge vote on each step before the work moves on."},
+         {"key": "council_threshold", "label": "Approval needed", "kind": "slider", "min": 0.34, "max": 1, "step": 0.01,
+          "help": "Share of the voters who must approve. 0.66 is two of three."},
+         {"key": "council_revisions", "label": "Revisions per step", "kind": "number", "min": 0, "max": 2,
+          "help": "How often a step can be sent back. After that its concerns travel forward with the work."},
+     ]},
     {"id": "brains", "title": "Sub-agent brains", "icon": "≋",
      "blurb": "Inner councils that work on a message before Doc or Fiery Black answer it directly.",
      "fields": "sub_brains"},
@@ -138,7 +150,7 @@ SECTIONS = [
      ]},
 ]
 
-DEFAULTS = {**ui.DEFAULTS, **lobes.DEFAULTS, "max_continuations": 8, "claude_model": "", "local_model": "",
+DEFAULTS = {**ui.DEFAULTS, **lobes.DEFAULTS, **__import__('council').DEFAULTS, "max_continuations": 8, "claude_model": "", "local_model": "",
             "max_tokens": 0, "num_ctx": 0, "keep_alive": "", "a1111_url": "http://127.0.0.1:7860",
             "comfy_url": "http://127.0.0.1:8188"}
 
@@ -176,8 +188,6 @@ def _options(session, f):
 
 def value(session, key):
     cfg = session.config
-    if key == "incognito":
-        return session.incognito
     if key == "api_key":
         return bool(session.claude.api_key)
     if key == "claude_model":
@@ -230,7 +240,7 @@ def describe(session):
                 g["value"] = value(session, f["key"])
                 s["fields"].append(g)
         out.append(s)
-    return {"sections": out, "lobeStats": lobes.load_stats(), "lobeStatsText": lobes.describe_stats().strip(),
+    return {"sections": out, "lobeStats": lobes.load_stats(), "councilStats": __import__("council").describe_stats().strip(), "lobeStatsText": lobes.describe_stats().strip(),
             "approaches": lobes.APPROACHES, "data": data_summary(session),
             "character": {"title": _title(session), "piece": session.persona.character.get("tale", "")}}
 
@@ -313,8 +323,6 @@ def apply(session, changes, hooks=None):
         where = FIELD.get(key, {}).get("where", "config")
         if key.startswith("sub_brains."):
             cfg.setdefault("sub_brains", {})[key.split(".", 1)[1]] = v
-        elif key == "incognito":
-            session.incognito = v
         elif key == "api_key":
             if v:
                 session.claude.api_key = v
