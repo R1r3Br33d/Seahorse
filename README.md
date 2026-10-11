@@ -88,7 +88,7 @@ Seahorse: memory, notebooks, profile and character.
 | `memory.py` | Long-term memory: facts, past conversations, condensing long chats |
 | `agents.py` | The ten agents, defined once in a compact table: eight brain regions, plus Doc and Fiery Black as the left and right lobes |
 | `crew.py` | The crew: a character for every agent from the 11 steps, their notary seals, the loyalty pledge and the chant |
-| `treasury.py` | The treasury: agents as pennies, laws as dimes, the constitution (the bill), the dollar (your goals) and the budget |
+| `treasury.py` | The treasury: agents as pennies, laws as dimes, bills (single amendments), the constitution, Poseidon's Trident (the dollar) and the budget |
 | `council.py` | The council: all ten agents vote on who answers, relays with approval steps |
 | `lobes.py` | The lobe vote: Doc and Fiery Black ballot in parallel, the tally, and the Judge on close splits |
 | `settings.py` | Every setting described once, validated and applied (the app's Settings tab) |
@@ -271,18 +271,20 @@ open. `/council` shows the last vote and the stats; `/council steps <1-4>`,
 `/council approval on|off`, `/council threshold <x>`, `/council revisions <n>`
 and `/council off` tune it, or use Settings → Council.
 
-### The treasury: pennies, dimes, the bill and the dollar
+### The treasury: pennies, bills, dimes and the dollar
 
 - **Pennies.** Every agent is a penny, numbered by council seat (¢01 the
   Seahorse ... ¢10 Poseidon). Every ballot cast and every piece of work carried
   is counted in pennies, and work passes through the agents one by one.
 - **Treasurer.** Poseidon, the Judge, keeps the ledger, counts the votes and
   mints the dimes.
-- **Dimes are law.** `/law <text>` proposes a rule. All ten pennies vote aye or
-  nay in seat order; a full dime of ayes (all ten, by default) mints it. A law
-  that would conflict with honesty, your wellbeing or safety is voted down.
-- **The bill is the constitution.** Up to ten laws, followed by every agent.
-  They never outrank the core values. `/laws`, `/law repeal <n>`.
+- **A bill is a single amendment.** `/law <text>` proposes one. All ten
+  pennies vote aye or nay in seat order.
+- **Dimes are law.** A full dime of ayes (all ten, by default) mints the bill,
+  and the amendment becomes law. A bill that would conflict with honesty, your
+  wellbeing or safety is voted down.
+- **The constitution** holds the amendments in force, up to ten, followed by
+  every agent. They never outrank the core values. `/laws`, `/law repeal <n>`.
 - **The dollar is Poseidon's Trident**, the oceanic army: the Atlantean
   control of currents, undertow and the flow of information. It is the people,
   meaning you, your goals, direction and future, and every coin serves it.
@@ -293,7 +295,7 @@ and `/council off` tune it, or use Settings → Council.
     against the goal it served, so `/budget` shows what's in the budget and
     where the effort actually went.
   - **Undertow**: what is pulled under and kept out of circulation: secrets
-    memory refused to store, laws voted down, chats from the old incognito mode.
+    memory refused to store, bills voted down, chats from the old incognito mode.
   - **Flow of information**: exactly how much data, from which source (memory,
     notebooks, profile, laws, goals, role, skills), reached the last reply.
 

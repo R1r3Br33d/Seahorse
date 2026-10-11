@@ -109,11 +109,11 @@ SECTIONS = [
           "help": "How often a step can be sent back. After that its concerns travel forward with the work."},
      ]},
     {"id": "treasury", "title": "Treasury", "icon": "¢",
-     "blurb": "Every agent is a penny. Ten pennies make a dime: a law. The laws make the bill: the constitution. "
+     "blurb": "Every agent is a penny. A bill is a single amendment; ten pennies voting aye make a dime, and it becomes law in the constitution. "
               "The dollar is the people: your goals, direction and future. Poseidon, the Judge, is Treasurer.",
      "fields": [
          {"key": "law_threshold", "label": "Ayes to mint a law", "kind": "number", "min": 6, "max": 10,
-          "help": "10 is a full dime: every penny must vote aye. Propose a law in chat with /law <text>."},
+          "help": "10 is a full dime: every penny must vote aye. Propose a bill (a single amendment) in chat with /law <text>."},
      ]},
     {"id": "brains", "title": "Sub-agent brains", "icon": "≋",
      "blurb": "Inner councils that work on a message before Doc or Fiery Black answer it directly.",

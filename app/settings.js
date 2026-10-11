@@ -94,7 +94,7 @@ function renderSection() {
   if (s.id === "treasury") {
     const card = document.createElement("div");
     card.className = "set-card";
-    card.innerHTML = `<h3 class="set-card-title">The ledger, the bill and the budget</h3><p class="muted small">Propose a law with <code>/law &lt;text&gt;</code>. Add your goals to the dollar with <code>/budget add &lt;goal&gt;</code> and set shares with <code>/budget set 1 60</code>.</p><pre class="prompt-preview">${esc(SET.treasury || "")}</pre>`;
+    card.innerHTML = `<h3 class="set-card-title">The ledger, the constitution and the budget</h3><p class="muted small">Propose a bill (a single amendment) with <code>/law &lt;text&gt;</code>. Add your goals to the dollar with <code>/budget add &lt;goal&gt;</code> and set shares with <code>/budget set 1 60</code>.</p><pre class="prompt-preview">${esc(SET.treasury || "")}</pre>`;
     main.appendChild(card);
   }
   if (s.id === "council") {

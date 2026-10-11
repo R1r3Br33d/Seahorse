@@ -368,7 +368,7 @@ class Session:
         if agent.role_prompt():
             flow.append(("role", agent.role_prompt()))
         if agent.persona:
-            flow.append(("laws (the bill)", treasury.constitution_prompt()))
+            flow.append(("constitution (amendments)", treasury.constitution_prompt()))
             flow.append(("Poseidon's Trident (goals)", treasury.dollar_prompt()))
         if self.skills.prompt(active_skills):
             flow.append(("skills", self.skills.prompt(active_skills)))
@@ -1252,8 +1252,8 @@ HELP = f"""{BOLD}Commands{RESET}
   /council                  how all ten agents voted on who answers (auto mode), and the stats
   /council on|off · steps <n> · approval on|off · threshold <x> · revisions <n>   tune the council
   /treasury                 the treasury: every agent a penny, the Judge as Treasurer, the constitution
-  /law <text>               propose a law: all ten pennies vote; a full dime of ayes mints it into the constitution
-  /laws · /law repeal <n>   the constitution (the bill, up to ten laws) · repeal one
+  /law <text>               propose a bill (a single amendment): all ten pennies vote; a full dime of ayes makes it law
+  /laws · /law repeal <n>   the constitution (up to ten amendments) · repeal one
   /budget                   the dollar is the people: your goals, direction, future - and what's in the budget
   /trident                  Poseidon's Trident: currents (goals), undertow (what's held back), flow of information
   /budget add <goal> · set <n> <cents> · drop <n>   split the dollar's 100¢ across your goals
@@ -2397,7 +2397,7 @@ def treasury_command(session, cmd, arg):
                          "\n".join(treasury.vote_lines(arg.strip(), votes, threshold, status, order)))
     else:
         print(treasury.describe(order, threshold))
-        ui.note("/law <text> propose a law · /law repeal <n> · /laws · a law needs a full dime of ayes")
+        ui.note("/law <text> propose a bill (a single amendment) · /law repeal <n> · /laws · a bill needs a full dime of ayes")
     print()
 
 

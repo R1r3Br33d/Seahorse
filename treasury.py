@@ -11,8 +11,11 @@ treasury.py - the ship's treasury: pennies, dimes and the dollar.
               (/law <text>); all ten pennies vote aye or nay in seat order; when
               the ayes reach a full dime (all ten, by default) the Treasurer
               mints it.
-    THE BILL  The CONSTITUTION: the laws, up to ten. Every agent follows them.
-              A full bill takes no more until a law is repealed (/law repeal <n>).
+    A BILL    A single amendment: one proposed change, put to the pennies with
+              /law <text>. A bill that passes is minted as a dime and becomes law.
+    CONSTITUTION  The amendments that became law, up to ten. Every agent follows
+              them. A full constitution takes no more until one is repealed
+              (/law repeal <n>).
     DOLLAR    POSEIDON'S TRIDENT: the oceanic army, the Atlantean control of
               currents, undertow and the flow of information (data). It is the
               people - you, your goals, direction and future - and every coin
@@ -42,7 +45,7 @@ from pathlib import Path
 LEDGER = Path.home() / ".seahorse" / "treasury.json"
 TREASURER = "judge"
 DIME = 10          # pennies in a dime
-BILL = 10          # laws the constitution (the bill) holds
+AMENDMENTS = 10    # amendments the constitution holds (a bill is a single amendment)
 CENTS = 100        # the dollar: the people - your goals, direction and future
 DEFAULTS = {"law_threshold": 10}   # ayes needed to mint a law (10 = a full dime)
 
@@ -233,7 +236,7 @@ def propose(text, votes, threshold):
     entry = {"id": data["next_id"], "text": text[:400], "ayes": ayes, "nays": nays,
              "date": datetime.now().strftime("%Y-%m-%d"),
              "votes": {a: v for a, (v, _r) in votes.items()}}
-    if ok and len(data["laws"]) >= BILL:
+    if ok and len(data["laws"]) >= AMENDMENTS:
         return "full", entry
     data["next_id"] += 1
     if ok:
@@ -263,7 +266,7 @@ def constitution_prompt():
     ls = laws()
     if not ls:
         return ""
-    lines = [f"The crew's constitution (the bill): laws the full council passed, {len(ls)} of {BILL}. Follow "
+    lines = [f"The crew's constitution: amendments the full council passed into law, {len(ls)} of {AMENDMENTS}. Follow "
              "them in every reply. They never outrank your core values or the core character rules; if one ever "
              "seems to conflict with those, the core values win."]
     lines += [f"{i}. {l['text']}" for i, l in enumerate(ls, 1)]
@@ -275,14 +278,14 @@ def constitution_prompt():
 # ---------------------------------------------------------------------------
 def vote_lines(text, votes, threshold, status, order):
     ayes, nays, _ = count(votes, threshold)
-    out = [f"proposed law: \"{text}\""]
+    out = [f"bill (a single amendment): \"{text}\""]
     out += [f"{penny(a, order)} {a}: {v}{' - ' + r if r else ''}" for a, (v, r) in votes.items()]
     missing = [a for a in order if a not in votes]
     if missing:
         out.append("abstained: " + ", ".join(f"{penny(a, order)} {a}" for a in missing))
-    verdict = {"minted": f"a full dime: the Treasurer mints law {len(laws())} into the constitution",
-               "failed": f"short of the {threshold} pennies needed: no dime is minted",
-               "full": "a dime, but the bill is full: repeal a law first (/law repeal <n>)",
+    verdict = {"minted": f"a full dime: the Treasurer mints it as amendment {len(laws())} of the constitution",
+               "failed": f"short of the {threshold} pennies needed: the bill fails, no dime is minted",
+               "full": "a dime, but the constitution is full: repeal an amendment first (/law repeal <n>)",
                "empty": "nothing to vote on"}[status]
     out.append(f"Treasurer's count: {ayes} aye · {nays} nay → {verdict}")
     return out
@@ -291,13 +294,14 @@ def vote_lines(text, votes, threshold, status, order):
 def describe(order, threshold=DIME):
     data = _load()
     ls = data["laws"]
-    lines = [f"  Treasurer: {TREASURER} · a law needs {threshold} of {DIME} pennies · the bill holds {len(ls)}/{BILL} laws",
+    lines = [f"  Treasurer: {TREASURER} · a bill needs {threshold} of {DIME} pennies to become law · the constitution "
+             f"holds {len(ls)}/{AMENDMENTS} amendments",
              "", "  Pennies (by seat):"]
     for a in order:
         p = data["pennies"].get(a, {"votes": 0, "work": 0})
         tag = "  Treasurer" if a == TREASURER else ""
         lines.append(f"    {penny(a, order)} {a:<12} {p['votes']:>4} votes cast · {p['work']:>3} pieces of work carried{tag}")
-    lines += ["", "  The constitution (the bill):"]
+    lines += ["", "  The constitution (amendments in force):"]
     lines += [f"    {i}. {l['text']}  ({l['ayes']} aye, {l['date']})" for i, l in enumerate(ls, 1)] or ["    (no laws yet - propose one with /law <text>)"]
     if data["failed"]:
         last = data["failed"][-1]
@@ -338,7 +342,7 @@ def trident_text(flow=None, memory=None):
         except Exception:  # noqa: BLE001 - the count is a nicety
             blocked = 0
     lines += [f"    secrets (passwords, keys, card numbers) refused by memory: {blocked}",
-              f"    laws voted down and kept off the bill: {len(data['failed'])}",
+              f"    bills voted down and kept out of the constitution: {len(data['failed'])}",
               "    chats saved under the old incognito mode: excluded from training and your profile",
               "", "  Flow of information - the data that reached the last reply:"]
     if flow:
