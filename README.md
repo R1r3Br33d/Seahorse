@@ -200,11 +200,11 @@ answers in their own voice:
 | hippocampus | The Seahorse | the captain himself | ♆ HELM · BOW · STERN |
 | broca | **Octopus**, once Mercy Quill, the Ship's Scribe | scribe and letter-writer | ✒ TEN WORDS A PENNY |
 | parietal | **Sea Turtle**, once Tobias Wren, the Navigator | navigator and reckoner | ✶ FIXED BY THE STARS |
-| cerebellum | **Crab**, once Kwame 'Plumb' Asante, the Ship's Carpenter | carpenter and shipwright | ⚒ PLUMB AND SQUARE |
-| wernicke | **Jellyfish**, once Auntie Sefa, the Ropemistress | teacher of the green hands | ∞ ONE TURN AT A TIME |
+| cerebellum | **Neptune**, once Kwame 'Plumb' Asante, the Ship's Carpenter | carpenter and shipwright | ⚒ PLUMB AND SQUARE |
+| wernicke | **Starfish**, once Auntie Sefa, the Ropemistress | teacher of the green hands | ∞ ONE TURN AT A TIME |
 | prefrontal | **Dolphin**, once Isabeau Laroche, the Quartermaster | plans, stores and articles | ⚑ ARTICLES SIGNED |
 | cingulate | **Barracuda**, once Gideon Crane, the Bosun | rigging, inspection | ⚓ EVERY LINE EVERY MORNING |
-| doc | **Starfish** (Doc), once Elias Fairweather, the Ship's Surgeon | surgeon, scholar, logbooks | ☤ ONLY WHAT I SAW |
+| doc | **Jellyfish** (Doc), once Elias Fairweather, the Ship's Surgeon | surgeon, scholar, logbooks | ☤ ONLY WHAT I SAW |
 | fiery-black | **Anglerfish** (Fiery Black), the Dark Lookout | lookout and master-at-arms | ◉ NEVER ASLEEP ON WATCH |
 | judge | **the Kraken**, once Judge Absalom Hale, the Magistrate | magistrate, Treasurer, weights and measures | ⚖ THE SCALES ARE LEVEL |
 
@@ -296,9 +296,9 @@ The crew is paid in pirate coin and the treasures of the sea.
   |---|---|---|---|
   | State (applies to everything) | the Seahorse | Planning & Provisions | Dolphin |
   | Communications | Octopus | Inspection | Barracuda |
-  | Navigation & Numbers | Sea Turtle | Science & Research | Starfish |
-  | Works & Engineering | Crab | Defense & Security | Anglerfish |
-  | Education | Jellyfish | Treasury & Justice | the Kraken |
+  | Navigation & Numbers | Sea Turtle | Science & Research | Jellyfish |
+  | Works & Engineering | Neptune | Defense & Security | Anglerfish |
+  | Education | Starfish | Treasury & Justice | the Kraken |
 
   A board with all ten shipwrecks is a **black pearl** and takes no more until one
   is repealed (`/law repeal <wreck>`). Name the board (`/law security: ...`,
