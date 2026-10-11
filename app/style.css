@@ -259,5 +259,6 @@ button.copy.ghost:hover { color: var(--text); border-color: var(--line); }
   border-radius: 14px; background: radial-gradient(circle at 50% 0%, rgba(255, 175, 215, .10), transparent 70%); }
 .magic-head { font-size: 13px; margin-bottom: 6px; } .magic-head span { color: var(--muted); font-size: 11.5px; margin-left: 6px; }
 .magic-hint { color: var(--muted); font-size: 12px; margin-top: 6px; font-style: italic; }
-.penny { display: inline-block; font: 600 10.5px var(--mono); color: #c98a4b; border: 1px solid rgba(201, 138, 75, .55);
-  border-radius: 99px; padding: 0 5px; margin-right: 5px; line-height: 15px; background: rgba(201, 138, 75, .08); }
+.penny { display: inline-flex; align-items: center; gap: 3px; font: 600 10.5px var(--mono); color: #5fd7d7;
+  border: 1px solid rgba(95, 215, 215, .45); border-radius: 99px; padding: 0 6px 0 4px; margin-right: 5px; line-height: 15px;
+  background: rgba(95, 215, 215, .08); vertical-align: 1px; }

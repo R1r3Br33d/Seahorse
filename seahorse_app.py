@@ -554,7 +554,7 @@ def app_state(session):
         agents.append({"name": a.name, "icon": ui.APP_ICONS.get(a.name) or ui.icon_for(a.name, a.icon),
                        "color": xterm_hex(a.color),
                        "crew": member.get("name", ""), "epithet": member.get("epithet", ""),
-                       "penny": f"¢{order.index(a.name) + 1:02d}" if a.name in order else "",
+                       "penny": f"{order.index(a.name) + 1:02d}" if a.name in order else "",   # its fish number
                        "seal": {"sign": sign, "motto": motto},
                        "description": a.description, "purpose": spec.get("purpose") or a.description,
                        "skill": spec.get("skill", ""), "aliases": a.aliases})

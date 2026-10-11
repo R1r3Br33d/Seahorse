@@ -177,7 +177,7 @@ class Decision:
     def table(self):
         """The council table as voted: top row 01-05, bottom row 10-06 (as the seats sit)."""
         seat = {a: i + 1 for i, a in enumerate(self.order)}
-        cell = lambda a: f"¢{seat[a]:02d} {a}›{self.votes.get(a, '-')}"   # each agent is a penny
+        cell = lambda a: f"><>{seat[a]:02d} {a}›{self.votes.get(a, '-')}"   # each agent is a fish
         top = [cell(a) for a in self.order[:5]]
         bottom = [cell(a) for a in reversed(self.order[5:10])]
         rows = ["^  " + " · ".join(top), "1+ " + " · ".join(bottom)]
@@ -215,8 +215,8 @@ def decide(agents, text, router_pick=None, perceived=None, previous=None, has_hi
 def seat_chart(seats=None):
     """The seating chart for display."""
     s = list(seats or SEATS)
-    top = " ".join(f"¢{i + 1:02d} {a}" for i, a in enumerate(s[:5]))
-    bottom = " ".join(f"¢{10 - i:02d} {a}" for i, a in enumerate(reversed(s[5:10]))) if len(s) > 5 else ""
+    top = " ".join(f"><>{i + 1:02d} {a}" for i, a in enumerate(s[:5]))
+    bottom = " ".join(f"><>{10 - i:02d} {a}" for i, a in enumerate(reversed(s[5:10]))) if len(s) > 5 else ""
     return [f"  ^  {top}", f"  1+ {bottom}", "  votes run 01→05 along the top, then 06→10 back along the bottom; on a tie, "
             "seat 01 casts the deciding vote (1+)"]
 

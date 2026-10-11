@@ -264,7 +264,7 @@ function renderAgents() {
     const b = document.createElement("button");
     b.className = "agent-btn" + ((STATE.agentMode === a.name) ? " active" : "");
     b.innerHTML = `<span class="agent-icon">${agentGlyph(a.name, 18)}</span><span><span class="agent-name">${esc(a.name)}</span>` +
-      (a.crew ? `<span class="agent-crew">${a.penny ? `<span class="penny" title="penny ${esc(a.penny)} - seat ${esc(a.penny.slice(1))} at the council table">${esc(a.penny)}</span>` : ""}${esc(a.crew)}</span>` : "") +
+      (a.crew ? `<span class="agent-crew">${a.penny ? `<span class="penny" title="fish ${esc(a.penny)} - seat ${esc(a.penny)} at the council table">${glyph("fish", 11)}${esc(a.penny)}</span>` : ""}${esc(a.crew)}</span>` : "") +
       `<span class="agent-purpose">${esc(a.purpose || a.description || "")}</span></span>`;
     $(".agent-icon", b).style.color = a.color;
     b.style.setProperty("--agent", a.color);
