@@ -1288,6 +1288,8 @@ HELP = f"""{BOLD}Commands{RESET}
   /board [sub] [...]        the governance board: high council, seats, reef, purse, season on one page;
                             /board seats · laws · law <bottle> · repeal <wreck> · pay · budget · quarters · crew ...
   /pay                      the payroll: every agent's purse in change, and the last payments
+  /pay credit|deduct|split|grow|ration ...   the Treasurer's MDAS moves on purses (add, subtract, divide, multiply)
+  /zero [Z|E|R|O ...]       ZERO spells MDAS: Zoom the size (x), Even split (/), Reward (+), Owed out (-)
   /change                   the change: coins, how a reply's worth is counted, each agent's purse
   /finetune plan|extract|outline|build   the Ultimate model, valued in change: plan it, price every reply
                             ($0.00-$1.00), read the dataset's worth, train it
@@ -2287,6 +2289,12 @@ def handle_command(session, line):
         build_command(session, arg)
     elif cmd == "finetune":
         finetune_command(session, arg)
+    elif cmd in ("zero", "cipher", "cypher", "mdas"):
+        if arg.strip():
+            handle_command(session, "/pay " + arg.strip())
+        else:
+            print("\n".join(change.zero_key()))
+            print("    e.g. /zero Z x1.1 broca · /zero E $1.00 all · /zero R judge 3 quarters · /zero O broca a dime\n")
     elif cmd in ("board", "governance", "gov"):
         board_command(session, arg)
     elif cmd == "change":
@@ -2516,6 +2524,60 @@ def board_command(session, arg):
     handle_command(session, f"/{target} {rest}".rstrip())
 
 
+def pay_command(session, words, order):
+    """/pay credit|deduct <agent|all> <amount> · split <amount> <agents|all> · grow|ration <factor> <agent|all>
+    (multiply, divide, add and subtract work too: the cipher's MDAS moves)."""
+    op = {"multiply": "grow", "divide": "split", "add": "credit", "subtract": "deduct",    # MDAS
+          "z": "grow", "e": "split", "r": "credit", "o": "deduct"}.get(words[0].lower(), words[0])   # ZERO
+    rest = words[1:]
+    if op == "grow" and rest and rest[0].lstrip("x").replace(".", "", 1).isdigit() and float(rest[0].lstrip("x")) < 1:
+        op = "ration"            # Z with a factor under 1 rations
+
+    def amount_at_end(ws):
+        """The amount is the last word or two ('25c', '3 quarters', 'a penny'); the agents come before it."""
+        for k in (2, 1):
+            if len(ws) >= k and change.money(" ".join(ws[-k:])) is not None:
+                return change.money(" ".join(ws[-k:])), ws[:-k]
+        return None, ws
+
+    def amount_at_start(ws):
+        for k in (2, 1):
+            if len(ws) >= k and change.money(" ".join(ws[:k])) is not None:
+                return change.money(" ".join(ws[:k])), ws[k:]
+        return None, ws
+
+    def who(names):
+        if names == ["all"] or not names:
+            return list(order)
+        found = [session.agents.get(n) for n in names]
+        if not all(found):
+            bad = [n for n, a in zip(names, found) if not a]
+            raise ValueError(f"no agent called {', '.join(bad)}")
+        return [a.name for a in found]
+    try:
+        if op == "split":
+            amount, names = amount_at_start(rest)
+            if amount is None:
+                raise ValueError("say how much to split: /pay split $1.00 broca judge")
+            lines, steps = treasury.transact("split", who(names), amount=amount)
+        elif op in ("grow", "ration"):
+            factor = float(rest[0].lstrip("x")) if rest else 0
+            if factor <= 0 or (op == "grow" and factor < 1) or (op == "ration" and factor > 1):
+                raise ValueError("grow takes a factor of 1 or more (x1.1), ration one of 1 or less (x0.5)")
+            lines, steps = treasury.transact(op, who(rest[1:]), factor=factor)
+        else:
+            amount, names = amount_at_end(rest)
+            if amount is None:
+                raise ValueError(f"say how much: /pay {op} broca 25c")
+            lines, steps = treasury.transact(op, who(names), amount=amount)
+    except (ValueError, IndexError) as e:
+        ui.note(str(e))
+        return print()
+    ui.note(f"the Treasurer {op}s: " + " · ".join(lines))
+    ui.note("worked as a cipher: " + " → ".join(steps[1:] or steps))
+    return print()
+
+
 def treasury_command(session, cmd, arg):
     """/treasury, /reef (/laws), /law <text> (/wreck), /law repeal <wreck>, /budget, /trident."""
     cfg = session.config
@@ -2523,6 +2585,9 @@ def treasury_command(session, cmd, arg):
     threshold = int(cfg.get("law_threshold", treasury.DEFAULTS["law_threshold"]))
     words = arg.split()
     if cmd == "pay":
+        if words and words[0].lower() in ("credit", "deduct", "split", "grow", "ration", "multiply", "divide", "add",
+                                          "subtract", "z", "e", "r", "o"):
+            return pay_command(session, words, order)
         print(treasury.payroll_text(order))
         return print()
     if cmd == "quarters":

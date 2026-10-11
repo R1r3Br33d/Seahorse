@@ -361,6 +361,24 @@ The crew is paid in pirate coin and the treasures of the sea.
     against the goal it served (`/budget`) and in the quarter's books, and
     Seahorse notes each payment quietly ("paid broca $0.60 (you built on
     it)"). `/pay` (or `/purses`) shows every purse and the last payments.
+  - **Zero, the cipher.** A cipher is a zero, so `change.cipher()` (also
+    `change.zero()`) is zero as a function: it starts from nothing and works
+    the four operations in MDAS order, all in whole pennies. **ZERO spells
+    MDAS**, one letter per move:
+
+    | Letter | Operation | Meaning | Example |
+    |---|---|---|---|
+    | **Z** | Multiply | zoom the size: grow it or ration it | `/zero Z x1.1 broca` · `/zero Z x0.5 judge` |
+    | **E** | Divide | even split: share it out and distribute it | `/zero E $1.00 all` |
+    | **R** | Add | reward: credit it | `/zero R judge 3 quarters` |
+    | **O** | Subtract | owed out: deduct it, never below zero | `/zero O broca a dime` |
+
+    These are the Treasurer's moves on the purses. They also work by name
+    (`/pay grow|ration|split|credit|deduct`) or by operation (`/pay
+    multiply|divide|add|subtract`). An even split never loses a penny: the
+    leftover pennies go one each in seat order, so $1.00 three ways is
+    $0.34, $0.33, $0.33. Amounts can be written `$1.25`, `125c`, `3
+    quarters` or `a dime`. `/zero` shows the key.
   - **Quarters are the four seasons**, three months each, and each is ridden
     by one of the four horsemen of the apocalypse: Winter (Dec-Feb) by Death
     on the pale horse, Spring (Mar-May) by Conquest on the white, Summer

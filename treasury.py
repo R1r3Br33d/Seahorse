@@ -175,6 +175,35 @@ def pay(agent, cents, why, data=None):
         _save(data)
 
 
+def transact(op, agents, amount=0, factor=1.0):
+    """The Treasurer's four moves on purses, worked through change.cipher in MDAS order.
+    op: 'grow' / 'ration' (multiply each purse by factor), 'split' (divide amount among agents and pay it out),
+        'credit' (add amount to each), 'deduct' (subtract amount from each, never below zero).
+    Returns (lines, steps)."""
+    data = _load()
+    purses = data.setdefault("purses", {})
+    lines, steps = [], []
+    if op == "split":
+        shares, steps = change.cipher(amount, divide=len(agents))
+        for a, c in zip(agents, shares):
+            pay(a, c, "split", data)
+            lines.append(f"{a} +{change.dollars(c)}")
+    else:
+        for a in agents:
+            have = purses.get(a, {}).get("cents", 0)
+            if op in ("grow", "ration"):
+                (new,), steps = change.cipher(have, multiply=factor)
+            elif op == "credit":
+                (new,), steps = change.cipher(have, add=amount)
+            else:
+                (new,), steps = change.cipher(have, subtract=amount)
+            if new != have:
+                pay(a, new - have, f"{op} x{factor:g}" if op in ("grow", "ration") else op, data)
+            lines.append(f"{a} {change.dollars(have)} -> {change.dollars(new)}")
+    _save(data)
+    return lines, steps
+
+
 def hold(agent, asked, chat, goal_text=""):
     """A reply was delivered: hold its pay until you answer it (or the chat ends)."""
     data = _load()
@@ -206,6 +235,7 @@ def payroll_text(order=None):
     order = order or list(purses)
     total = sum(p["cents"] for p in purses.values())
     lines = [f"  ¢ The payroll - the change is the agents' pay; the Kraken, as Treasurer, pays it out.",
+             "    /pay credit|deduct <agent|all> <amount> · split <amount> <agents|all> · grow|ration <factor> <agent|all>",
              f"    a delivered reply earns what it was worth ({change.dollars(0)} to {change.dollars(100)}) · "
              f"a relay step {change.dollars(change.WAGES['relay step'])} · a ballot {change.dollars(change.WAGES['ballot'])}",
              f"    paid out in all: {change.coins(total) if total else '$0.00 - nothing yet'}", ""]

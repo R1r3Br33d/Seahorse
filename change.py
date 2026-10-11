@@ -38,8 +38,8 @@ COINS = [("whole value", 100), ("quarter", 25), ("dime", 10), ("nickel", 5), ("p
 SIGN = {"whole value": "$", "quarter": "Q", "dime": "D", "nickel": "N", "penny": "P"}
 
 START, PRAISED, BUILT_ON, LET_STAND, SCRAPPED, CORRECTED, ASKED_AGAIN = 50, 50, 10, 5, -10, -25, -50
-TWICE, ONCE = 75, 30
-WAGES = {"relay step": 5, "ballot": 1}   # paid at once: a nickel per relay step carried, a penny per ballot   # training: worth this much or more (in hundredths)
+TWICE, ONCE = 75, 30   # training: worth this much or more (in hundredths)
+WAGES = {"relay step": 5, "ballot": 1}   # paid at once: a nickel per relay step carried, a penny per ballot
 
 PRAISE = re.compile(r"\b(thanks|thank you|thx|perfect|great|awesome|exactly|love it|nailed it|that works|"
                     r"that'?s right|spot on)\b", re.I)
@@ -115,6 +115,75 @@ def worth(reply, next_user="", asked="", ended=False, scrap=None):
 def copies(c):
     """How many times the Ultimate model trains on a reply worth c hundredths."""
     return 2 if c >= TWICE else 1 if c >= ONCE else 0
+
+
+# ---- the cipher: zero as a function -----------------------------------------------------------------------------
+# A cipher is a zero. cipher() starts there and works the four operations in MDAS order, all in whole pennies:
+#   M  multiply  grow or ration the size      (x 1.10 grows a tenth; x 0.50 rations it to half)
+#   D  divide    split and distribute         (the split goes out evenly; leftover pennies go one each, in order)
+#   A  add       credit
+#   S  subtract  deduct                       (never below zero: a purse can be emptied, not overdrawn)
+
+def money(text):
+    """'$1.25', '1.25', '125c', '125¢', '3 quarters', 'a dime' -> hundredths (int), or None."""
+    t = str(text).strip().lower().replace(",", "")
+    m = re.fullmatch(r"(?:(\d+|an?)\s+)?(whole values?|quarters?|dimes?|nickels?|pennies|penny)", t)
+    if m:
+        n = 1 if m.group(1) in (None, "a", "an") else int(m.group(1))
+        size = {"whole": 100, "quart": 25, "dime": 10, "nicke": 5, "penni": 1, "penny": 1}
+        return n * next(v for k, v in size.items() if m.group(2).startswith(k))
+    m = re.fullmatch(r"(\d+)\s*(?:c|¢|cents?)", t)
+    if m:
+        return int(m.group(1))
+    m = re.fullmatch(r"\$?(\d*\.?\d+)", t)
+    return round(float(m.group(1)) * 100) if m else None
+
+
+def split(c, n):
+    """Divide c pennies n ways: even shares, the leftover pennies one each to the first in line. Sums to c."""
+    if n <= 0:
+        return []
+    base, extra = divmod(c, n)
+    return [base + (1 if i < extra else 0) for i in range(n)]
+
+
+def cipher(x=0, multiply=1, divide=1, add=0, subtract=0):
+    """Zero as a function: start at x (a cipher, 0, unless given) and apply M, D, A, S in that order.
+
+    Returns (shares, steps): the result split `divide` ways (one share when divide is 1), and each step shown,
+    e.g. cipher(100, multiply=1.5, divide=4, add=5, subtract=2) ->
+         ([41, 41, 40, 40], ...): M $1.50, D $0.38 / $0.38 / $0.37 / $0.37, A +$0.05 each, S -$0.02 each.
+    add and subtract apply to every share, so a credit or deduction reaches each recipient."""
+    steps = [f"start {dollars(x)}" + (" (a cipher: zero)" if x == 0 else "")]
+    grown = max(0, round(x * multiply))
+    if multiply != 1:
+        steps.append(f"M x{multiply:g} -> {dollars(grown)} ({'grown' if multiply > 1 else 'rationed'})")
+    shares = split(grown, max(1, int(divide)))
+    if divide != 1:
+        steps.append(f"D /{int(divide)} -> " + ", ".join(dollars(s) for s in shares) + " (split and distributed)")
+    if add:
+        shares = [s + add for s in shares]
+        steps.append(f"A +{dollars(add)} each (credit)")
+    if subtract:
+        shares = [max(0, s - subtract) for s in shares]
+        steps.append(f"S -{dollars(subtract)} each (deduct, never below zero)")
+    return shares, steps
+
+
+zero = cipher   # a cipher is a zero
+
+# ZERO spells MDAS, one letter per move, in the same order:
+ZERO = {
+    "Z": ("multiply", "zoom the size: grow it (x1.1) or ration it (x0.5)"),
+    "E": ("divide", "even split: share it out and distribute it"),
+    "R": ("add", "reward: credit it"),
+    "O": ("subtract", "owed out: deduct it, never below zero"),
+}
+
+
+def zero_key():
+    return ["  ZERO - MDAS spelled in one word, worked in that order:"] + \
+           [f"    {letter} = {op[0].upper()} {op:<9} {what}" for letter, (op, what) in ZERO.items()]
 
 
 def judge_prompt(convo, system, reference, first, second):
