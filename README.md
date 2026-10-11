@@ -95,6 +95,7 @@ Seahorse: memory, notebooks, profile and character.
 | `agency.py` | His inner voice (conscience, journal, self-model) and the Bureau of Magic |
 | `builder.py` | The character builder and persona presets |
 | `finetune.py` | The Ultimate model: fine-tuning the local model on your conversations (plan, extract, outline, build) |
+| `atlas.py` | Seahorse's own map, read from the code: every command and its aliases, the module tree, and which commands you use (`/map`) |
 | `change.py` | The change: Seahorse's value system in quarters, dimes, nickels and pennies; what a reply is worth, and how the Ultimate model is trained and judged |
 | `cortex.py` | How the agents perceive, keep notebooks, dream and develop themselves |
 | `portrait.py` | Seahorse's opinionated profile of you |
@@ -116,6 +117,18 @@ purse. When the Treasurer pays a reply, a coin chip appears on it
 ("+$1.00 · you thanked or praised it"). Type `/` in the message box and the
 commands come up with what each one does: arrow keys to choose, Tab to fill
 it in. Settings → Treasury shows the purses and the spine live.
+
+### The map
+
+`/map` is Seahorse's map of itself. It's read from the code, so it can't
+drift: `/map commands` lists every command, its aliases and the function
+that handles it; `/map tree` shows the module tree from the three entry
+points (the terminal app, the desktop app's server, and the fine-tuner),
+with what each module is for and its size; `/map usage` shows which
+commands you actually use, counted on your computer only. The same map is
+kept as [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), and
+`python3 atlas.py --check` fails if a command is handled but missing from
+`/help`, or documented but not handled.
 
 ## Who Seahorse is
 

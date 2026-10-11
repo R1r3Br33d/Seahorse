@@ -1293,6 +1293,7 @@ HELP = f"""{BOLD}Commands{RESET}
   /pay credit|deduct|split|grow|ration ...   the Treasurer's MDAS moves on purses (add, subtract, divide, multiply)
   /zero [Z|E|R|O ...]       ZERO spells MDAS: Zoom the size (x), Even split (/), Reward (+), Owed out (-)
   /orez                     ZERO in reverse: undo the last Treasurer move
+  /map [commands|tree|usage]  Seahorse's own map, read from its code: every command, the module tree, what you use
   /spine [full]             the spine: every payment a numbered, hash-sealed vertebra, filed in portions of 1,000;
                             checks it (full replays everything from zero)
   /change                   the change: coins, how a reply's worth is counted, each agent's purse
@@ -2246,6 +2247,8 @@ def character_command(session, arg):
 def handle_command(session, line):
     cmd, _, arg = line[1:].partition(" ")
     arg = arg.strip()
+    import atlas
+    atlas.track(cmd)          # which commands get used (/map usage) - counted on this computer only
     if cmd in ("quit", "exit", "q"):
         raise EOFError
     elif cmd == "help":
@@ -2298,6 +2301,10 @@ def handle_command(session, line):
         lines = treasury.orez()
         ui.note("OREZ - ZERO in reverse: " + " · ".join(lines) if lines else "nothing to run back - no Treasurer move yet")
         print()
+    elif cmd in ("map", "atlas", "architecture"):
+        import atlas
+        part = arg.lower() if arg.lower() in ("commands", "tree", "usage") else "all"
+        print(atlas.text(part) + "\n")
     elif cmd in ("spine", "sequence", "sequencer"):
         print(treasury.spine_text(full=arg.strip().lower() == "full"))
         print()
