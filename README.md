@@ -108,6 +108,15 @@ Your data lives in `~/.seahorse/`: `memory.db`, `cortex.db`, `profile.db`, `pers
 `config.json` (settings), `crew.json` (your crew edits), `lobes.json` and
 `council.json` (vote stats), saved chats, and editable `agents/` and `skills/` folders.
 
+### In the app
+
+The crew show by their names first (Bamba, Octopus, Neptune ...), with the
+agent behind each name, its council seat, ♞ on the four horsemen, and its
+purse. When the Treasurer pays a reply, a coin chip appears on it
+("+$1.00 · you thanked or praised it"). Type `/` in the message box and the
+commands come up with what each one does: arrow keys to choose, Tab to fill
+it in. Settings → Treasury shows the purses and the spine live.
+
 ## Who Seahorse is
 
 **Bamba, the Seahorse.** A pirate out of Port Royal, Jamaica, in the 1600s who

@@ -251,7 +251,8 @@ def describe(session):
                 g["value"] = value(session, f["key"])
                 s["fields"].append(g)
         out.append(s)
-    return {"sections": out, "lobeStats": lobes.load_stats(), "treasury": __import__("treasury").describe(__import__("council").seating(session.agents.agents, session.config.get("council_seats")), int(session.config.get("law_threshold", 10))),
+    return {"sections": out, "lobeStats": lobes.load_stats(), "payroll": __import__("treasury").payroll_text(__import__("council").seating(session.agents.agents, session.config.get("council_seats"))) + "\n\n" + "\n".join(__import__("treasury").spine_text(0).splitlines()[:3]),
+            "treasury": __import__("treasury").describe(__import__("council").seating(session.agents.agents, session.config.get("council_seats")), int(session.config.get("law_threshold", 10))),
             "councilStats": "\n".join(l.strip() if i < 2 else l for i, l in enumerate(__import__("council").seat_chart(session.config.get("council_seats")))) + "\n\n" + __import__("council").describe_stats().strip(), "lobeStatsText": lobes.describe_stats().strip(),
             "approaches": lobes.APPROACHES, "data": data_summary(session),
             "character": {"title": _title(session), "piece": session.persona.character.get("tale", "")}}

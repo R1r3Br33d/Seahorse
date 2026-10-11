@@ -386,6 +386,11 @@ def orez():
     return lines
 
 
+def load_purses():
+    """{agent: cents} - every purse's balance."""
+    return {a: p["cents"] for a, p in _load().get("purses", {}).items()}
+
+
 def hold(agent, asked, chat, goal_text=""):
     """A reply was delivered: hold its pay until you answer it (or the chat ends)."""
     data = _load()

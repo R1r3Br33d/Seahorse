@@ -70,6 +70,8 @@ from cortex import category_color, lens  # noqa: E402
 from memory import WorkingMemory  # noqa: E402
 from personality import character_title  # noqa: E402
 import crew  # noqa: E402
+import change  # noqa: E402
+import treasury  # noqa: E402
 import lobes  # noqa: E402
 import settings as settings_mod  # noqa: E402
 from skills import CALC_RESULT_PREFIX, calculate, find_calc_blocks, format_results  # noqa: E402
@@ -99,6 +101,11 @@ def plain(text):
 
 class WebSession(sh.Session):
     emit = staticmethod(lambda event: None)
+
+    def paid_note(self, agent, cents, ledger):
+        """The Treasurer paid the last reply: show it on that reply as a coin chip."""
+        why = ", ".join(w for _d, w in ledger[1:]) or "it answered"
+        self.emit({"type": "paid", "agent": agent, "cents": cents, "dollars": change.dollars(cents), "why": why})
 
     def _stream(self, agent, system, messages):
         errors = []
@@ -546,6 +553,7 @@ def improve_prompt(session, prompt):
 def app_state(session):
     import council
     order = council.seating(session.agents.agents, session.config.get("council_seats"))
+    purses = treasury.load_purses()
     agents = []
     for a in session.agents.agents.values():
         spec = lens(a.name)
@@ -556,6 +564,8 @@ def app_state(session):
                        "crew": member.get("name", ""), "epithet": member.get("epithet", ""),
                        "penny": f"{order.index(a.name) + 1:02d}" if a.name in order else "",   # its shilling number
                        "seal": {"sign": sign, "motto": motto},
+                       "horseman": member.get("horseman") or None,           # the four high-ranking council members
+                       "purse": purses.get(a.name, 0),                        # cents paid so far
                        "description": a.description, "purpose": spec.get("purpose") or a.description,
                        "skill": spec.get("skill", ""), "aliases": a.aliases})
     c = session.persona.character

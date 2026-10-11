@@ -96,6 +96,10 @@ function renderSection() {
     card.className = "set-card";
     card.innerHTML = `<h3 class="set-card-title">The ledger, the reef and the budget</h3><p class="muted small">Throw a message in a bottle (a single amendment) with <code>/law &lt;text&gt;</code>. Add your goals to the marlin with <code>/budget add &lt;goal&gt;</code> and set shares with <code>/budget set 1 60</code>.</p><pre class="prompt-preview">${esc(SET.treasury || "")}</pre>`;
     main.appendChild(card);
+    const pay = document.createElement("div");
+    pay.className = "set-card";
+    pay.innerHTML = `<h3 class="set-card-title">The purses and the spine</h3><p class="muted small">The change is the agents' pay: each reply earns what it turned out to be worth when you answer it. The Treasurer's moves spell <b>ZERO</b> - <code>/zero Z x1.1 broca</code> grows, <code>E $1 all</code> splits, <code>R judge 25c</code> credits, <code>O broca a dime</code> deducts - and <code>/orez</code> runs the last one back. <code>/spine</code> checks the sealed journal of every payment.</p><pre class="prompt-preview">${esc(SET.payroll || "")}</pre>`;
+    main.appendChild(pay);
   }
   if (s.id === "council") {
     const card = document.createElement("div");

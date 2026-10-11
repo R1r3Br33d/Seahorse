@@ -263,8 +263,11 @@ function renderAgents() {
     const li = document.createElement("li");
     const b = document.createElement("button");
     b.className = "agent-btn" + ((STATE.agentMode === a.name) ? " active" : "");
-    b.innerHTML = `<span class="agent-icon">${agentGlyph(a.name, 18)}</span><span><span class="agent-name">${esc(a.name)}</span>` +
-      (a.crew ? `<span class="agent-crew">${a.penny ? `<span class="penny" title="shilling ${esc(a.penny)} - seat ${esc(a.penny)} at the council table">s${esc(a.penny)}</span>` : ""}${esc(a.crew)}</span>` : "") +
+    const h = a.horseman;
+    b.innerHTML = `<span class="agent-icon">${agentGlyph(a.name, 18)}</span><span><span class="agent-name">${esc(a.crew || a.name)}</span>` +
+      (a.crew ? `<span class="agent-crew">${a.penny ? `<span class="penny" title="shilling ${esc(a.penny)} - seat ${esc(a.penny)} at the council table">s${esc(a.penny)}</span>` : ""}${esc(a.name)}` +
+        (h ? `<span class="horse" title="${esc(h.rider)}, ${esc(h.horse)} - rides over ${esc(h.quarter)}, stands at ${esc(h.station)}">♞ ${esc(h.rider)}</span>` : "") +
+        (a.purse ? `<span class="purse" title="paid so far">$${(a.purse / 100).toFixed(2)}</span>` : "") + `</span>` : "") +
       `<span class="agent-purpose">${esc(a.purpose || a.description || "")}</span></span>`;
     $(".agent-icon", b).style.color = a.color;
     b.style.setProperty("--agent", a.color);
@@ -274,7 +277,7 @@ function renderAgents() {
       const r = await api("/api/agent", { agent: a.name });
       STATE.agentMode = r.agentMode;
       renderAgents();
-      toast(a.name === "auto" ? "Routing each message to the best agent" : `Talking to ${a.name}`);
+      toast(a.name === "auto" ? "Routing each message to the best agent" : `Talking to ${a.crew || a.name}`);
     });
     li.appendChild(b);
     list.appendChild(li);
@@ -358,16 +361,17 @@ function clock(d = new Date()) { return d.toLocaleTimeString([], { hour: "2-digi
 function botBubble(agentName, via, ev = {}) {
   const a = agentInfo(agentName);
   // A live reply says who's answering and their seal; earlier replies use the agent's current crew member.
-  const crewName = ev.crew !== undefined ? ev.crew : (a.crew && agentName !== "hippocampus" ? a.crew : "");
+  const crewName = ev.crew || a.crew || "";
   const seal = ev.seal || (a.seal && a.seal.sign ? { ...a.seal, name: a.crew } : null);
-  const el = addEl("msg-bot", `<div class="bot-head"><b class="who">${agentGlyph(agentName, 16)}<span>${esc(a.name)}</span></b>` +
-    (crewName ? `<span class="crew-tag">${esc(crewName)}</span>` : "") +
+  const el = addEl("msg-bot", `<div class="bot-head"><b class="who">${agentGlyph(agentName, 16)}<span>${esc(crewName || a.name)}</span></b>` +
+    (crewName ? `<span class="crew-tag">${esc(a.name)}</span>` : "") +
     `<span class="via">${esc(via || "")}</span></div>` +
     `<div class="bot-body"></div><div class="bot-foot">` +
     (seal && typeof sealSVG === "function" ? `<span class="foot-seal" title="${esc(seal.stamp || "")}">${sealSVG(seal.sign, seal.motto, a.color, 34, seal.name)}</span>` : "") +
     `<span class="stamp"></span><button type="button" class="copy ghost" data-copy-reply>${glyph("copy", 13)}<span>Copy reply</span></button></div>`);
   $("b", el).style.color = a.color;
   el.style.setProperty("--agent", a.color);
+  el.dataset.agent = agentName;
   return el;
 }
 
@@ -472,6 +476,19 @@ async function send(text) {
         paint();
         finishBubble(bubble, raw, clock());
         if (ev.note) addEl("note").textContent = ev.note;
+      } else if (ev.type === "paid") {
+        // The Treasurer paid the last reply by this agent: a coin chip on that reply's footer.
+        const done = [...document.querySelectorAll(`.msg-bot[data-agent="${CSS.escape(ev.agent)}"]`)].filter(m => m !== bubble);
+        const foot = done.length && $(".bot-foot", done[done.length - 1]);
+        if (foot && !$(".paid-chip", foot)) {
+          const chip = document.createElement("span");
+          chip.className = "paid-chip" + (ev.cents >= 75 ? " rich" : ev.cents < 30 ? " thin" : "");
+          chip.title = `The Treasurer paid ${ev.agent} ${ev.dollars}: ${ev.why}`;
+          chip.textContent = `+${ev.dollars} · ${ev.why.split(",")[0]}`;
+          foot.insertBefore(chip, $(".copy", foot));
+        }
+        const ag = (STATE.agents || []).find(x => x.name === ev.agent);
+        if (ag) { ag.purse = (ag.purse || 0) + ev.cents; renderAgents(); }
       } else if (ev.type === "note") {
         addEl("note").textContent = ev.text;
       } else if (ev.type === "error") {
@@ -515,8 +532,56 @@ $("#composer").addEventListener("submit", e => {
   autosize();
   send(v);
 });
+// ------------------------------------------------------------------ "/" command hints
+const COMMANDS = [
+  ["board", "the governance board: council, reef, purse, season"], ["pay", "every agent's purse and the last payments"],
+  ["zero", "the Treasurer's moves: Z grow · E split · R credit · O deduct"], ["orez", "undo the last Treasurer move"],
+  ["spine", "the sealed journal of every payment"], ["change", "the coins and what a reply is worth"],
+  ["treasury", "the ledger, the reef and the budget"], ["laws", "the shipwrecks in force (the RCSO)"],
+  ["law", "throw a message in a bottle for the crew to vote on"], ["budget", "the marlin: your goals and their shares"],
+  ["quarters", "the four seasons and their horsemen"], ["crew", "Bamba's crew"], ["council", "the council's votes and seats"],
+  ["trident", "Poseidon's Trident: processing power and the work"], ["pockets", "the oil: ideas scrapped in past chats"],
+  ["compass", "the NEWS and lightning on the instruments"], ["locker", "Davy Jones' Locker: the pulse and the hourglass"],
+  ["trench", "the Mariana Trench: the undertow"], ["finetune", "the Ultimate model: plan · extract · outline · build"],
+  ["lobes", "how the two lobes have voted"], ["help", "every command"],
+];
+const hints = document.createElement("ul");
+hints.className = "cmd-hints"; hints.hidden = true; hints.setAttribute("role", "listbox");
+$("#composer").appendChild(hints);
+let hintAt = 0;
+function showHints() {
+  const v = $("#input").value;
+  const m = /^\/(\w*)$/.exec(v);
+  const found = m ? COMMANDS.filter(([c]) => c.startsWith(m[1].toLowerCase())).slice(0, 8) : [];
+  hints.hidden = !found.length;
+  hintAt = Math.min(hintAt, Math.max(0, found.length - 1));
+  hints.innerHTML = found.map(([c, d], i) =>
+    `<li role="option" data-cmd="${c}" class="${i === hintAt ? "on" : ""}"><b>/${c}</b><span>${esc(d)}</span></li>`).join("");
+}
+function takeHint(li) {
+  if (!li) return false;
+  $("#input").value = "/" + li.dataset.cmd + " ";
+  hints.hidden = true; $("#input").focus();
+  return true;
+}
+hints.addEventListener("mousedown", e => { e.preventDefault(); takeHint(e.target.closest("li")); });
+$("#input").addEventListener("input", () => { hintAt = 0; showHints(); });
+$("#input").addEventListener("blur", () => setTimeout(() => { hints.hidden = true; }, 120));
 $("#input").addEventListener("keydown", e => {
-  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("#composer").requestSubmit(); }
+  if (!hints.hidden) {
+    const items = hints.querySelectorAll("li");
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      hintAt = (hintAt + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length;
+      showHints(); return;
+    }
+    if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey && /^\/\w*$/.test($("#input").value) &&
+        !COMMANDS.some(([c]) => "/" + c === $("#input").value))) {
+      if (takeHint(items[hintAt])) { e.preventDefault(); return; }
+    }
+    if (e.key === "Escape") { hints.hidden = true; return; }
+  }
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); hints.hidden = true; $("#composer").requestSubmit(); }
 });
 function autosize() { const t = $("#input"); t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 200) + "px"; }
 $("#input").addEventListener("input", autosize);
