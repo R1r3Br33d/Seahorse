@@ -1290,6 +1290,7 @@ HELP = f"""{BOLD}Commands{RESET}
   /pay                      the payroll: every agent's purse in change, and the last payments
   /pay credit|deduct|split|grow|ration ...   the Treasurer's MDAS moves on purses (add, subtract, divide, multiply)
   /zero [Z|E|R|O ...]       ZERO spells MDAS: Zoom the size (x), Even split (/), Reward (+), Owed out (-)
+  /orez                     ZERO in reverse: undo the last Treasurer move
   /change                   the change: coins, how a reply's worth is counted, each agent's purse
   /finetune plan|extract|outline|build   the Ultimate model, valued in change: plan it, price every reply
                             ($0.00-$1.00), read the dataset's worth, train it
@@ -2289,6 +2290,10 @@ def handle_command(session, line):
         build_command(session, arg)
     elif cmd == "finetune":
         finetune_command(session, arg)
+    elif cmd in ("orez", "undo-pay") or (cmd in ("zero", "pay") and arg.strip().lower() in ("orez", "undo", "reverse")):
+        lines = treasury.orez()
+        ui.note("OREZ - ZERO in reverse: " + " · ".join(lines) if lines else "nothing to run back - no Treasurer move yet")
+        print()
     elif cmd in ("zero", "cipher", "cypher", "mdas"):
         if arg.strip():
             handle_command(session, "/pay " + arg.strip())

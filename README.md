@@ -378,7 +378,8 @@ The crew is paid in pirate coin and the treasures of the sea.
     multiply|divide|add|subtract`). An even split never loses a penny: the
     leftover pennies go one each in seat order, so $1.00 three ways is
     $0.34, $0.33, $0.33. Amounts can be written `$1.25`, `125c`, `3
-    quarters` or `a dime`. `/zero` shows the key.
+    quarters` or `a dime`. `/zero` shows the key. **OREZ** is ZERO in
+    reverse (S, A, D, M): `/orez` runs the last move back and undoes it.
   - **Quarters are the four seasons**, three months each, and each is ridden
     by one of the four horsemen of the apocalypse: Winter (Dec-Feb) by Death
     on the pale horse, Spring (Mar-May) by Conquest on the white, Summer

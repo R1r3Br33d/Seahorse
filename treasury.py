@@ -182,11 +182,12 @@ def transact(op, agents, amount=0, factor=1.0):
     Returns (lines, steps)."""
     data = _load()
     purses = data.setdefault("purses", {})
-    lines, steps = [], []
+    lines, steps, moved = [], [], []
     if op == "split":
         shares, steps = change.cipher(amount, divide=len(agents))
         for a, c in zip(agents, shares):
             pay(a, c, "split", data)
+            moved.append((a, c, "split"))
             lines.append(f"{a} +{change.dollars(c)}")
     else:
         for a in agents:
@@ -199,9 +200,30 @@ def transact(op, agents, amount=0, factor=1.0):
                 (new,), steps = change.cipher(have, subtract=amount)
             if new != have:
                 pay(a, new - have, f"{op} x{factor:g}" if op in ("grow", "ration") else op, data)
+                moved.append((a, new - have, op))
             lines.append(f"{a} {change.dollars(have)} -> {change.dollars(new)}")
+    data.setdefault("moves", []).append(moved)      # OREZ can run it back
+    data["moves"] = data["moves"][-20:]
     _save(data)
     return lines, steps
+
+
+def orez():
+    """ZERO in reverse: undo the last Treasurer move, each payment run back the other way (never below zero).
+    Returns lines, or [] if there is nothing to undo."""
+    data = _load()
+    moves = data.get("moves") or []
+    if not moves:
+        return []
+    last, lines = moves.pop(), []
+    for a, delta, op in reversed(last):
+        have = data.get("purses", {}).get(a, {}).get("cents", 0)
+        back = max(-have, -delta)
+        pay(a, back, f"orez (undo {op})", data)
+        lines.append(f"{a} {change.dollars(have)} -> {change.dollars(have + back)}")
+    data["moves"] = moves
+    _save(data)
+    return lines
 
 
 def hold(agent, asked, chat, goal_text=""):

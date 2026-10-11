@@ -182,8 +182,9 @@ ZERO = {
 
 
 def zero_key():
-    return ["  ZERO - MDAS spelled in one word, worked in that order:"] + \
-           [f"    {letter} = {op[0].upper()} {op:<9} {what}" for letter, (op, what) in ZERO.items()]
+    return (["  ZERO - MDAS spelled in one word, worked in that order:"]
+            + [f"    {letter} = {op[0].upper()} {op:<9} {what}" for letter, (op, what) in ZERO.items()]
+            + ["  OREZ - ZERO in reverse (S A D M): runs the last move back and undoes it."])
 
 
 def judge_prompt(convo, system, reference, first, second):
