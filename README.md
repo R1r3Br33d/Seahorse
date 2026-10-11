@@ -389,6 +389,14 @@ The crew is paid in pirate coin and the treasures of the sea.
     from zero and every purse must come out to the exact penny. `/spine` (or
     `/sequence`) shows the last vertebrae and checks the seals and the replay.
     Changing or removing any vertebra breaks the seal at that point.
+    The spine is filed in **portions**, and the **divisor** sets their size:
+    every 1,000 vertebrae the live spine is filed as `spine/portion-0001.jsonl`,
+    `-0002` and so on. Each portion gets a checkpoint holding every purse's
+    balance at that point, its last seal, and a hash of the whole file. The
+    chain carries straight on into the next portion. `/spine` checks each
+    filed portion by its file hash and replays only the live portion from
+    the last checkpoint, so checking stays quick however long the spine
+    grows. `/spine full` replays everything from zero.
   - **Quarters are the four seasons**, three months each, and each is ridden
     by one of the four horsemen of the apocalypse: Winter (Dec-Feb) by Death
     on the pale horse, Spring (Mar-May) by Conquest on the white, Summer

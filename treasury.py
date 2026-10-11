@@ -167,8 +167,37 @@ def quarters_text(chats_dir=None, n=4):
 # reef's stone. The purses are a function of the spine: replay it from zero and every purse must come out to the
 # exact penny. /spine shows the last vertebrae and checks both the seals and the replay.
 
-SPINE = Path.home() / ".seahorse" / "spine.jsonl"
+SPINE = Path.home() / ".seahorse" / "spine.jsonl"           # the live portion
+PORTIONS = Path.home() / ".seahorse" / "spine"               # filed portions: portion-0001.jsonl ... and index.json
+DIVISOR = 1000      # vertebrae per portion: when the live spine reaches a multiple of this, it is filed
 _TIP = {}   # spine path -> (size, seq, hash): the last vertebra, so appending doesn't re-read the file
+
+
+def _portion_index():
+    try:
+        return json.loads((PORTIONS / "index.json").read_text())
+    except (OSError, ValueError):
+        return []
+
+
+def _file_portion(seq, last_hash):
+    """File the live spine as the next portion, with a checkpoint: balances after it and the file's own hash."""
+    index = _portion_index()
+    n = len(index) + 1
+    PORTIONS.mkdir(parents=True, exist_ok=True)
+    dest = PORTIONS / f"portion-{n:04d}.jsonl"
+    raw = SPINE.read_bytes()
+    rows = [json.loads(l) for l in raw.decode("utf-8").splitlines() if l.strip()]
+    balances = dict(index[-1]["balances"]) if index else {}
+    for v in rows:
+        balances[v["agent"]] = v["after"]
+    dest.write_bytes(raw)
+    index.append({"portion": n, "file": dest.name, "first": rows[0]["seq"], "last": seq, "last_hash": last_hash,
+                  "sha256": hashlib.sha256(raw).hexdigest(), "balances": balances,
+                  "filed": datetime.now().isoformat(timespec="seconds")})
+    (PORTIONS / "index.json").write_text(json.dumps(index, indent=1))
+    SPINE.write_text("")
+    _TIP[SPINE] = (0, seq, last_hash)
 
 
 def _vertebra_seal(v, prev):
@@ -180,11 +209,15 @@ def _spine_tip():
     try:
         size = SPINE.stat().st_size
     except OSError:
-        return 0, ""
+        size = 0
     hit = _TIP.get(SPINE)
     if hit and hit[0] == size:
         return hit[1], hit[2]
-    seq, prev = 0, ""
+    index = _portion_index()
+    seq, prev = (index[-1]["last"], index[-1]["last_hash"]) if index else (0, "")   # a fresh live file follows the last portion
+    if not size:
+        _TIP[SPINE] = (0, seq, prev)
+        return seq, prev
     with open(SPINE, "rb") as f:          # read just the last line
         f.seek(max(0, size - 4096))
         lines = f.read().splitlines()
@@ -208,20 +241,42 @@ def _grow_spine(agent, cents, why, before):
     with open(SPINE, "a", encoding="utf-8") as f:
         f.write(json.dumps(v) + "\n")
     _TIP[SPINE] = (SPINE.stat().st_size, v["seq"], v["hash"])
+    if v["seq"] % DIVISOR == 0:
+        _file_portion(v["seq"], v["hash"])
+
+
+def _read(path):
+    try:
+        return [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
+    except (OSError, ValueError):
+        return []
 
 
 def spine(limit=None):
-    try:
-        rows = [json.loads(l) for l in SPINE.read_text(encoding="utf-8").splitlines() if l.strip()]
-    except (OSError, ValueError):
-        rows = []
+    """The vertebrae, oldest first: every filed portion, then the live one (only as many portions as `limit` needs)."""
+    rows = _read(SPINE)
+    for p in reversed(_portion_index()):
+        if limit and len(rows) >= limit:
+            break
+        rows = _read(PORTIONS / p["file"]) + rows
     return rows[-limit:] if limit else rows
 
 
-def spine_check():
-    """(seals intact, first broken seq or None, replay from zero matches the purses, differences)."""
-    rows, prev, broken = spine(), "", None
-    replay = {}
+def spine_check(full=True):
+    """(seals intact, first broken seq or None, replay matches the purses, differences).
+    full: replay every portion from zero. Otherwise each filed portion is checked by its file hash and the live
+    spine is replayed from the last checkpoint - the divisor's shortcut."""
+    index = _portion_index()
+    for p in index:
+        raw = (PORTIONS / p["file"]).read_bytes() if (PORTIONS / p["file"]).exists() else b""
+        if hashlib.sha256(raw).hexdigest() != p["sha256"]:
+            return False, p["first"], False, {}
+    if full:
+        rows, prev, replay = spine(), "", {}
+    else:
+        rows = _read(SPINE)
+        prev, replay = (index[-1]["last_hash"], dict(index[-1]["balances"])) if index else ("", {})
+    broken = None
     for v in rows:
         if broken is None and (v.get("hash") != _vertebra_seal(v, prev) or v.get("before") != replay.get(v["agent"], 0)):
             broken = v.get("seq")
@@ -233,19 +288,27 @@ def spine_check():
     return broken is None, broken, not diff, diff
 
 
-def spine_text(n=12):
-    rows = spine()
-    ok, broken, replays, diff = spine_check()
+def spine_text(n=12, full=False):
+    """/spine - the last vertebrae; checks the filed portions by their hashes and replays the live portion
+    from the last checkpoint (/spine full replays everything from zero)."""
+    rows = spine(n)
+    total, _tip = _spine_tip()
+    ok, broken, replays, diff = spine_check(full)
+    index = _portion_index()
+    live = total - (index[-1]["last"] if index else 0)
     lines = ["  ⟟ The spine - every payment a vertebra, in sequence from zero, each sealed to the one before.",
-             f"    {len(rows)} vertebrae · seals {'intact' if ok else f'BROKEN at vertebra {broken}'} · replayed from zero, "
+             f"    filed in portions of {DIVISOR:,} (the divisor): {len(index)} portion{'s' * (len(index) != 1)} filed"
+             + (f" (#1-#{index[-1]['last']})" if index else "") + f", {live} vertebrae in the live portion",
+             f"    {total} vertebrae · seals {'intact' if ok else f'BROKEN at vertebra {broken}'} · "
+             + ("replayed from zero" if full or not index else "replayed from the last checkpoint") + ", "
              + ("every purse matches to the penny" if replays else
                 "the purses DON'T match: " + ", ".join(f"{a} spine {change.dollars(r)} vs purse {change.dollars(p)}"
                                                         for a, (r, p) in diff.items())), ""]
-    for v in rows[-n:]:
+    for v in rows:
         sign = "+" if v["cents"] >= 0 else "-"
-        wedge = f"{abs(v['cents']) / 100:.2f}"
-        lines.append(f"    #{v['seq']:<5} {v['when'][5:16].replace('T', ' ')}  {v['agent']:<12} {sign}{wedge} of a whole  "
-                     f"{change.dollars(v['before'])} → {change.dollars(v['after'])}  {v['why']:<22} {v['hash'][:10]}")
+        lines.append(f"    #{v['seq']:<5} {v['when'][5:16].replace('T', ' ')}  {v['agent']:<12} "
+                     f"{sign}{abs(v['cents']) / 100:.2f} of a whole  {change.dollars(v['before'])} → "
+                     f"{change.dollars(v['after'])}  {v['why']:<22} {v['hash'][:10]}")
     if not rows:
         lines.append("    no vertebrae yet - the first payment starts the spine")
     return "\n".join(lines)

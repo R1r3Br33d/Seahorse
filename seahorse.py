@@ -1291,7 +1291,8 @@ HELP = f"""{BOLD}Commands{RESET}
   /pay credit|deduct|split|grow|ration ...   the Treasurer's MDAS moves on purses (add, subtract, divide, multiply)
   /zero [Z|E|R|O ...]       ZERO spells MDAS: Zoom the size (x), Even split (/), Reward (+), Owed out (-)
   /orez                     ZERO in reverse: undo the last Treasurer move
-  /spine                    the spine: every payment a numbered, hash-sealed vertebra from zero; checks the replay
+  /spine [full]             the spine: every payment a numbered, hash-sealed vertebra, filed in portions of 1,000;
+                            checks it (full replays everything from zero)
   /change                   the change: coins, how a reply's worth is counted, each agent's purse
   /finetune plan|extract|outline|build   the Ultimate model, valued in change: plan it, price every reply
                             ($0.00-$1.00), read the dataset's worth, train it
@@ -2296,7 +2297,7 @@ def handle_command(session, line):
         ui.note("OREZ - ZERO in reverse: " + " · ".join(lines) if lines else "nothing to run back - no Treasurer move yet")
         print()
     elif cmd in ("spine", "sequence", "sequencer"):
-        print(treasury.spine_text())
+        print(treasury.spine_text(full=arg.strip().lower() == "full"))
         print()
     elif cmd in ("zero", "cipher", "cypher", "mdas"):
         if arg.strip():
