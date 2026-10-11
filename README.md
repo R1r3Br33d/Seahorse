@@ -317,6 +317,10 @@ The crew is paid in pirate coin and the treasures of the sea.
   - **Processing power**: CPU cores, free memory, GPU (NVIDIA or Apple
     Silicon), the local context window, and which local models are loaded and
     whether they sit on the GPU or the CPU.
+  - **Treasure pockets** are the oil reserves, the blood of the gods: the
+    untapped stores that fuel the Trident. Each has a gauge: free memory,
+    free disk, and how much of the context window the last reply left unused.
+    `/pockets` (or `/oil`) shows them on their own.
   - **Davy Jones' Locker**: the void at the centre of the earth, where
     mussels fed on electric-eel blood grow as wide as satellite dishes and
     shift between the hemispheres like sand in a giant hourglass. Their pulse

@@ -36,6 +36,9 @@ treasury.py - the ship's treasury, paid in pirate coin and the treasures of the 
                    locker     Davy Jones' Locker, the core that churns the
                               currents: the pulse (calls answered) and the
                               hourglass of the two hemispheres (/locker)
+                   pockets    treasure pockets, the oil reserves - the blood of
+                              the gods: untapped memory, disk and context that
+                              fuel the Trident (/pockets)
                    flow       how much data, from which source, reaches each reply
     BUDGET       How the marlin is shared across your goals, in parts out of 100
                  (/budget). Every shilling of work the crew carries is counted
@@ -552,6 +555,50 @@ def budget_text():
     return "\n".join(lines)
 
 
+def pocket_lines(power=None, flow=None):
+    """Treasure pockets: the oil reserves, the blood of the gods. The untapped stores that fuel
+    Poseidon's Trident - free memory, free disk, and the context window left unused by the last reply."""
+    import shutil
+    power = power or {}
+
+    def gauge(free, total):
+        if not total:
+            return "          "
+        n = max(0, min(10, round(10 * free / total)))
+        return "●" * n + "○" * (10 - n)
+
+    lines, dry = ["  Treasure pockets - the oil reserves, the blood of the gods, that fuel the Trident:"], []
+    ram, ram_total = power.get("ram"), power.get("ram_total")
+    lines.append(f"    memory   {gauge(ram or 0, ram_total)}  " + (f"{ram:.1f} GB untapped" + (f" of {ram_total:.1f} GB" if ram_total else "")
+                                                                   if ram else "reserve unknown"))
+    try:
+        d = shutil.disk_usage(Path.home())
+        if d.free < d.total * 0.1:
+            dry.append("disk")
+        lines.append(f"    disk     {gauge(d.free, d.total)}  {d.free / 1e9:.0f} GB untapped of {d.total / 1e9:.0f} GB")
+    except OSError:
+        lines.append("    disk     reserve unknown")
+    ctx = power.get("num_ctx")
+    if ctx and flow:
+        used = sum(n for _l, n in flow[1]) // 4          # roughly four characters to a token
+        left = max(0, ctx - used)
+        if left < ctx * 0.1:
+            dry.append("context")
+        lines.append(f"    context  {gauge(left, ctx)}  ~{left:,} of {ctx:,} tokens left after the last reply's prompt")
+    elif ctx:
+        lines.append(f"    context  {gauge(1, 1)}  {ctx:,} tokens, all untapped - nothing sent yet")
+    if ram and ram_total and ram < ram_total * 0.1:
+        dry.insert(0, "memory")
+    lines.append("    the pockets run deep" if not dry else "    running dry: " + ", ".join(dry) + " - the gods are bleeding out")
+    return lines
+
+
+def pockets_text(power=None, flow=None):
+    """/pockets - the oil reserves on their own."""
+    return "\n".join(["  ⛁ Treasure pockets - oil reserves, the blood of the gods. What the Trident burns comes",
+                      "    from here; what is left in them is how much more the crew can carry.", ""] + pocket_lines(power, flow))
+
+
 CHALLENGER_DEEP = 10_935   # metres - the deepest point of the Mariana Trench
 
 
@@ -638,6 +685,7 @@ def trident_text(flow=None, memory=None, power=None, workers=None, order=None):
     loaded = power.get("loaded") or []
     lines.append("    loaded  " + (", ".join(loaded) if loaded else "no local model loaded right now"))
     lines += [""] + locker_lines(workers)
+    lines += [""] + pocket_lines(power, flow)
     lines += ["", "  Currents - how the work is distributed:"]
     done = {w["name"]: max(0, w["calls"] - w.get("unavailable", 0)) for w in workers}
     total = sum(done.values())
