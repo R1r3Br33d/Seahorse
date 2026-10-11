@@ -205,11 +205,11 @@ answers in their own voice:
 | prefrontal | **Dolphin**, once Isabeau Laroche, the Quartermaster | plans, stores and articles | ⚑ ARTICLES SIGNED |
 | cingulate | **Barracuda**, once Gideon Crane, the Bosun | rigging, inspection | ⚓ EVERY LINE EVERY MORNING |
 | doc | **Knots** (Doc), once Elias Fairweather, the Ship's Surgeon | surgeon, scholar, logbooks | ☤ ONLY WHAT I SAW |
-| fiery-black | **Anglerfish** (Fiery Black), the Dark Lookout | lookout and master-at-arms | ◉ NEVER ASLEEP ON WATCH |
+| fiery-black | **Vainesell** (Fiery Black), the Dark Lookout | lookout and master-at-arms | ◉ NEVER ASLEEP ON WATCH |
 | judge | **the Kraken**, once Judge Absalom Hale, the Magistrate | magistrate, Treasurer, weights and measures | ⚖ THE SCALES ARE LEVEL |
 
 The sea renamed each of them when it took them; call any agent by their sea
-name too (`@kraken`, `@octopus`, `@anglerfish` ...).
+name too (`@kraken`, `@octopus`, `@vainesell` ...).
 
 Every crew member is built from the same 11 steps as the captain: identity
 (with their **notary seal**, a sign and a motto), backstory, tale, voice,
@@ -297,7 +297,7 @@ The crew is paid in pirate coin and the treasures of the sea.
   | State (applies to everything) | the Seahorse | Planning & Provisions | Dolphin |
   | Communications | Octopus | Inspection | Barracuda |
   | Navigation & Numbers | Sea Turtle | Science & Research | Knots |
-  | Works & Engineering | Neptune | Defense & Security | Anglerfish |
+  | Works & Engineering | Neptune | Defense & Security | Vainesell |
   | Education | Starfish | Treasury & Justice | the Kraken |
 
   A board with all ten shipwrecks is a **black pearl** and takes no more until one

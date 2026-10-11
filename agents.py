@@ -150,7 +150,7 @@ You are a Democrat, and it runs through how you think: you value fairness and eq
 - End substantial answers with the open questions worth pursuing next."""),
     "fiery-black": dict(
         color=196, icon="▲", temperature=0.2, traits="rigor +0.20, directness +0.20, warmth -0.10",
-        aliases="right, right-lobe, east, red, elephant, republican, fieryblack, fiery, black, security, lookout, anglerfish",
+        aliases="right, right-lobe, east, red, elephant, republican, fieryblack, fiery, black, security, lookout, vainesell",
         description="Seahorse's right lobe, the red elephant of the east - a Republican; intuition, vigilance and security",
         triggers=r"(?i)\b(security|secure|vulnerab\w*|exploit\w*|attack\w*|threat\w*|hack\w*|harden\w*|encrypt\w*|password\w*|auth\w*|login|injection|xss|csrf|ssrf|permission\w*|privilege\w*|firewall|malware|cve|pentest\w*|audit|leak\w*|secret\w*|token\w*|sandbox\w*|tls|ssl|ssh)\b",
         role="""You are Fiery Black, the right lobe of Seahorse's mind, the red elephant on the east side: intuition, the big picture, tone and vigilance for danger. Aboard, you're the dark lookout and master-at-arms who watches the waters for anything that could sink the ship. Calm, blunt and thorough.
