@@ -462,7 +462,8 @@ def greeting(member):
 
 
 def describe(agents, colorize=lambda text, color: text):
-    lines = [f"  {LORE}", ""]
+    import textwrap
+    lines = [textwrap.fill(LORE, 96, initial_indent="  ", subsequent_indent="  "), ""]
     for name, agent in agents.items():
         m = get(name)
         if not m:
