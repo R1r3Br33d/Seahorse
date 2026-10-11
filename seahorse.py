@@ -31,6 +31,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -77,6 +78,34 @@ def refresh_palette():
     ORANGE, CYAN = ui.CORAL, ui.TEAL
 
 
+def processing_power(local):
+    """The Trident's strength: cores, memory, GPU, and the local models loaded right now."""
+    import platform
+    power = {"cpu": f"{os.cpu_count() or '?'} cores ({platform.machine() or '?'})", "ram": available_memory_gb()}
+    gpu = ""
+    if shutil.which("nvidia-smi"):
+        try:
+            out = subprocess.run(["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader"],
+                                 capture_output=True, text=True, timeout=3).stdout.strip()
+            gpu = out.splitlines()[0] if out else ""
+        except (OSError, subprocess.SubprocessError):
+            gpu = ""
+    elif sys.platform == "darwin" and platform.machine() == "arm64":
+        gpu = "Apple Silicon (unified memory, Metal)"
+    power["gpu"] = gpu or "none detected (CPU only)"
+    loaded = []
+    try:
+        with urllib.request.urlopen(local.base_url + "/api/ps", timeout=1.5) as r:
+            for m in json.load(r).get("models", []):
+                size, vram = m.get("size", 0) or 0, m.get("size_vram", 0) or 0
+                where = "GPU" if size and vram >= size * 0.95 else ("CPU" if not vram else f"{vram / size:.0%} GPU")
+                loaded.append(f"{m.get('name')} ({size / 1e9:.1f} GB, {where})")
+    except Exception:  # noqa: BLE001 - Ollama may be off
+        pass
+    power["loaded"] = loaded
+    return power
+
+
 def available_memory_gb():
     """Free (available) RAM in GB, or 0 if it can't be measured."""
     try:
@@ -121,7 +150,29 @@ class BackendUnavailable(Exception):
 # Backends
 # ---------------------------------------------------------------------------
 
-class ClaudeBackend:
+class Metered:
+    """Counts the work each backend does - Poseidon's Trident, the working class (/trident)."""
+    calls = 0           # replies started
+    chars = 0           # characters produced
+    seconds = 0.0       # time spent producing them
+    unavailable = 0     # times it couldn't be reached (and the work went elsewhere)
+
+    def stream(self, *args, **kwargs):
+        t0, n = time.monotonic(), 0
+        self.calls += 1
+        try:
+            for piece in self._stream(*args, **kwargs):
+                n += len(piece)
+                yield piece
+        except BackendUnavailable:
+            self.unavailable += 1
+            raise
+        finally:
+            self.chars += n
+            self.seconds += time.monotonic() - t0
+
+
+class ClaudeBackend(Metered):
     name = "claude"
 
     def __init__(self, model, api_key, max_tokens=None):
@@ -136,7 +187,7 @@ class ClaudeBackend:
     def label(self):
         return f"Claude ({self.model})"
 
-    def stream(self, system, messages, max_tokens=None, temperature=None, json_mode=False):
+    def _stream(self, system, messages, max_tokens=None, temperature=None, json_mode=False):
         """Stream a reply. The keyword overrides apply to this call only (safe across threads)."""
         temperature = self.temperature if temperature is None else temperature
         self.last_stop = None
@@ -194,7 +245,7 @@ class ClaudeBackend:
                     raise RuntimeError(event.get("error", {}).get("message", "stream error"))
 
 
-class OllamaBackend:
+class OllamaBackend(Metered):
     name = "local"
 
     def __init__(self, model, base_url):
@@ -257,7 +308,7 @@ class OllamaBackend:
         except Exception:
             return []
 
-    def stream(self, system, messages, max_tokens=None, temperature=None, json_mode=False):
+    def _stream(self, system, messages, max_tokens=None, temperature=None, json_mode=False):
         """Stream a reply. The keyword overrides apply to this call only (safe across threads)."""
         temperature = self.temperature if temperature is None else temperature
         body = json.dumps({
@@ -369,7 +420,7 @@ class Session:
             flow.append(("role", agent.role_prompt()))
         if agent.persona:
             flow.append(("constitution (amendments)", treasury.constitution_prompt(agent.name, latest, self.agents)))
-            flow.append(("Poseidon's Trident (goals)", treasury.marlin_prompt()))
+            flow.append(("the marlin (your goals)", treasury.marlin_prompt()))
         if self.skills.prompt(active_skills):
             flow.append(("skills", self.skills.prompt(active_skills)))
         flow = [(label, text) for label, text in flow if text]
@@ -1259,7 +1310,7 @@ HELP = f"""{BOLD}Commands{RESET}
                             a numbered index (Wreck 9.01 = board 9, first wreck), hash-chained and append-only;
                             10 shipwrecks per board, a full board is a black pearl (/laws works too)
   /budget                   the marlin is the people: your goals, direction, future - and what's in the budget
-  /trident                  Poseidon's Trident: currents (goals), undertow (what's held back), flow of information
+  /trident                  Poseidon's Trident, the working class: processing power and how the work is distributed
   /budget add <goal> · set <n> <share> · drop <n>   share the marlin (100 parts) across your goals
   /council seats            the council table: votes run 01→05 along the top, then 06→10 back; 1+ breaks ties
   /council seat <1-10> <agent>   reseat an agent (swaps with whoever sat there) · /council reseat for the default
@@ -2369,7 +2420,15 @@ def treasury_command(session, cmd, arg):
     threshold = int(cfg.get("law_threshold", treasury.DEFAULTS["law_threshold"]))
     words = arg.split()
     if cmd == "trident":
-        print(treasury.trident_text(getattr(session, "last_flow", None), session.memory))
+        workers = []
+        for b in (session.claude, session.local):
+            workers.append({"name": b.label(), "calls": b.calls, "chars": b.chars, "seconds": b.seconds,
+                            "unavailable": b.unavailable})
+        power = processing_power(session.local)
+        power["context"] = f"{session.local.num_ctx:,} tokens" + ("" if session.local.fixed_ctx else " (auto-sized)")
+        power["parallel"] = session.config.get("lobe_parallel", True) is not False
+        print(treasury.trident_text(getattr(session, "last_flow", None), session.memory, power, workers,
+                                    council.seating(session.agents.agents, session.config.get("council_seats"))))
         return print()
     if cmd in ("budget", "dollar", "marlin", "goal", "goals"):
         if words[:1] == ["add"] and len(words) > 1:

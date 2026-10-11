@@ -19,15 +19,16 @@ treasury.py - the ship's treasury, paid in pirate coin and the treasures of the 
                  boards, each chaired by an agent, ten shipwrecks per board. A board
                  with all ten shipwrecks is a black pearl, the rarest thing in the
                  sea. A full board takes no more until one is repealed.
-    MARLIN       POSEIDON'S TRIDENT: the oceanic army, the Atlantean control of
-                 currents, undertow and the flow of information (data). It is
-                 the people - you, your goals, direction and future - and every
-                 shilling and galleon serves it. Its three prongs:
-                   currents   where the crew's effort flows: your goals and the budget
-                   undertow   what is pulled under and kept out of circulation:
-                              secrets never stored, bottles washed ashore, chats excluded
-                   flow       the flow of information: how much data, from which
-                              source, reaches each reply (/trident)
+    MARLIN       The PEOPLE: you - your goals, direction and future. Every
+                 shilling and galleon serves it (/budget).
+    TRIDENT      POSEIDON'S TRIDENT: the working class - the processing power
+                 (CPU, memory, GPU, the models) and how the work is distributed
+                 among them; the Atlantean control of currents, undertow and the
+                 flow of information (/trident):
+                   currents   how the work is distributed across the workers
+                   undertow   what is held back: calls a worker couldn't take,
+                              secrets never stored, bottles washed ashore
+                   flow       how much data, from which source, reaches each reply
     BUDGET       How the marlin is shared across your goals, in parts out of 100
                  (/budget). Every shilling of work the crew carries is counted
                  against the goal it served.
@@ -187,8 +188,8 @@ def marlin_prompt():
     gs = goals()
     if not gs:
         return ""
-    lines = ["Poseidon's Trident (the marlin) - the person you serve: their goals, direction and future, with the "
-             "share of the crew's effort they've budgeted to each. These are the currents the crew moves on. Keep "
+    lines = ["The marlin - the person you serve: their goals, direction and future, with the "
+             "share of the crew's effort they've budgeted to each. Keep "
              "them in mind; where it genuinely helps, connect your answer to them. Never push the goals on the "
              "person or bring them up when they don't fit."]
     lines += [f"- {g['text']} ({g['cents']} of 100 shares)" for g in gs]
@@ -529,7 +530,7 @@ def budget_text():
     data = _load()
     gs = data["goals"]
     total = sum(g.get("spent", 0) for g in gs) + data["general"]
-    lines = ["  Currents - Poseidon's Trident (the marlin: your goals, direction, future) and the budget:"]
+    lines = ["  The marlin (the people: your goals, direction, future) and the budget:"]
     if not gs:
         lines.append("    nothing budgeted yet - add a goal with /budget add <goal>; the marlin's 100 shares split across them")
     for i, g in enumerate(gs, 1):
@@ -543,32 +544,58 @@ def budget_text():
     return "\n".join(lines)
 
 
-def trident_text(flow=None, memory=None):
-    """Poseidon's Trident: the three prongs - currents, undertow and the flow of information."""
+def trident_text(flow=None, memory=None, power=None, workers=None, order=None):
+    """Poseidon's Trident - the working class: the processing power, and how the work is distributed."""
     data = _load()
-    lines = ["  Ψ Poseidon's Trident - the oceanic army: the Atlantean control of currents, undertow and the flow of",
-             "    information. It is the marlin: the people, and every shilling and galleon of the treasury serves it.", "",
-             budget_text(), "", "  Undertow - what is pulled under and kept out of circulation:"]
+    power, workers, order = power or {}, workers or [], order or []
+    lines = ["  Ψ Poseidon's Trident - the working class: the processing power that does the crew's work, and how",
+             "    that work is distributed. Its prongs are currents (distribution), undertow (what is held back) and",
+             "    the flow of information.", "", "  Processing power:"]
+    ram = power.get("ram")
+    lines += [f"    CPU     {power.get('cpu', '?')}",
+              f"    memory  {f'{ram:.1f} GB free' if ram else 'unknown'}",
+              f"    GPU     {power.get('gpu', '?')}",
+              f"    local   context window {power.get('context', '?')} · "
+              f"{'lobes vote in parallel' if power.get('parallel', True) else 'lobes vote one after the other'}"]
+    loaded = power.get("loaded") or []
+    lines.append("    loaded  " + (", ".join(loaded) if loaded else "no local model loaded right now"))
+    lines += ["", "  Currents - how the work is distributed:"]
+    done = {w["name"]: max(0, w["calls"] - w.get("unavailable", 0)) for w in workers}
+    total = sum(done.values())
+    for w in workers:
+        n = done[w["name"]]
+        share = f"{n / total:.0%}" if total else "0%"
+        rate = f" · {w['chars'] / w['seconds']:.0f} chars/s" if w["seconds"] > 0.5 and w["chars"] else ""
+        missed = f" · couldn't take {w['unavailable']}" if w.get("unavailable") else ""
+        lines.append(f"    {w['name']:<32} {n:>4} calls answered ({share}) · {w['chars']:,} chars produced{rate}{missed}")
+    if not total:
+        lines.append("    no calls yet this session")
+    carried = [(a, data["shillings"].get(a, {}).get("work", 0)) for a in order]
+    busy = [f"{shilling(a, order)} {a} {n}" for a, n in sorted(carried, key=lambda kv: -kv[1]) if n][:6]
+    lines.append("    work carried by the crew: " + (" · ".join(busy) if busy else "none yet"))
     blocked = 0
     if memory is not None:
         try:
             blocked = memory.db.execute("SELECT COUNT(*) FROM memory_log WHERE action='blocked'").fetchone()[0]
         except Exception:  # noqa: BLE001 - the count is a nicety
             blocked = 0
-    lines += [f"    secrets (passwords, keys, card numbers) refused by memory: {blocked}",
-              f"    bottles voted down and washed ashore, never sunk into the reef: {len(data['failed'])}",
+    down = sum(w.get("unavailable", 0) for w in workers)
+    lines += ["", "  Undertow - what is held back or pulled under:",
+              f"    calls a worker couldn't take (sent on to the next): {down}",
+              f"    secrets (passwords, keys, card numbers) refused by memory: {blocked}",
+              f"    bottles voted down and washed ashore: {len(data['failed'])}",
               "    chats saved under the old incognito mode: excluded from training and your profile",
               "", "  Flow of information - the data that reached the last reply:"]
     if flow:
         agent, parts = flow
-        total = sum(n for _l, n in parts) or 1
-        lines.append(f"    to {agent}: {total:,} characters in all")
+        total_chars = sum(n for _l, n in parts) or 1
+        lines.append(f"    to {agent}: {total_chars:,} characters in all")
         for label, n in sorted(parts, key=lambda kv: -kv[1]):
-            bar = "█" * max(1, round(24 * n / total))
+            bar = "█" * max(1, round(24 * n / total_chars))
             lines.append(f"    {label:<28} {n:>7,}  {bar}")
     else:
         lines.append("    nothing yet - send a message, then look again")
+    lines += ["", "  (The marlin - the people: your goals and the budget - is /budget.)"]
     return "\n".join(lines)
 
 
-dollar_prompt = marlin_prompt   # older name

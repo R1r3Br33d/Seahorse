@@ -306,16 +306,22 @@ The crew is paid in pirate coin and the treasures of the sea.
   subject. To keep replies lean, each reply carries only the State shipwrecks,
   the answering agent's own board, and the boards the message touches.
   `/reef` shows the whole cabinet. Shipwrecks never outrank the core values.
-- **The marlin is Poseidon's Trident**, the oceanic army: the Atlantean
-  control of currents, undertow and the flow of information. It is the people,
-  meaning you, your goals, direction and future, and every shilling and galleon
-  serves it. `/trident` shows its three prongs:
-  - **Currents**: where the crew's effort flows. The budget shares the marlin
-    (100 parts) across your goals (`/budget add <goal>`, `/budget set <n> <share>`,
-    `/budget drop <n>`); each shilling of work is counted against the goal it
-    served, so `/budget` shows what's in the budget and where the effort went.
-  - **Undertow**: what is pulled under and kept out of circulation: secrets
-    memory refused to store, bottles that washed ashore, chats from the old incognito mode.
+- **The marlin is the people**: you, your goals, direction and future. Every
+  shilling and galleon serves it. The budget shares the marlin (100 parts)
+  across your goals (`/budget add <goal>`, `/budget set <n> <share>`,
+  `/budget drop <n>`); each shilling of work is counted against the goal it
+  served, so `/budget` shows what's in the budget and where the effort went.
+- **Poseidon's Trident is the working class**: the processing power that does
+  the crew's work, and how that work is distributed. `/trident` reports:
+  - **Processing power**: CPU cores, free memory, GPU (NVIDIA or Apple
+    Silicon), the local context window, and which local models are loaded and
+    whether they sit on the GPU or the CPU.
+  - **Currents**: how the work is distributed: calls each worker (Claude, the
+    local model) answered, characters produced and speed, and which crew
+    members carried the work.
+  - **Undertow**: what is held back: calls a worker couldn't take (sent on to
+    the next), secrets memory refused to store, bottles that washed ashore,
+    chats from the old incognito mode.
   - **Flow of information**: exactly how much data, from which source (memory,
     notebooks, profile, shipwrecks, goals, role, skills), reached the last reply.
 

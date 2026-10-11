@@ -111,8 +111,8 @@ SECTIONS = [
     {"id": "treasury", "title": "Treasury", "icon": "◆",
      "blurb": "Every agent is a shilling. A message in a bottle is a single amendment; ten shillings voting aye make a galleon, sunk into the reef "
               "as a shipwreck: a law in the Reef Courtesy Standard Operation. A board with all ten wrecks is a black pearl. "
-              "The marlin is Poseidon's Trident: the people, your goals, direction and future. Poseidon, the Judge, "
-              "is Treasurer.",
+              "The marlin is the people: your goals, direction and future. Poseidon's Trident is the working class: the "
+              "processing power and how the work is distributed (/trident). Poseidon, the Judge, is Treasurer.",
      "fields": [
          {"key": "law_threshold", "label": "Ayes to sink a galleon (make a law)", "kind": "number", "min": 6, "max": 10,
           "help": "10 means every shilling must vote aye. Throw a message in a bottle (a single amendment) in chat with /law <text>."},
