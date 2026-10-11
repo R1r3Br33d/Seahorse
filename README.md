@@ -99,6 +99,7 @@ Seahorse: memory, notebooks, profile and character.
 | `skills.py` | Writing, math and units skills, plus the safe calculator |
 | `units.py` | Every unit of measurement the Judge knows: SI, metric prefixes, imperial, US, nautical, historical and more, with conversions |
 | `ui.py` | Cosmetic package: themes, logos, agent icons, spinner, Markdown reply boxes with highlighted code, starting state |
+| `docs/build-conversation.md` | The conversation Seahorse was built in: every request, and the replies since the record begins |
 | `Modelfile` | Starter Ollama model definition (`ollama create seahorse -f Modelfile`) |
 
 Your data lives in `~/.seahorse/`: `memory.db`, `cortex.db`, `profile.db`, `personality.json`,
