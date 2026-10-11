@@ -724,8 +724,9 @@ class ReplyBox:
         ╰─ 2.4s
     """
 
-    def __init__(self, agent, backend_label, color=None, icon=None, seal=""):
+    def __init__(self, agent, backend_label, color=None, icon=None, seal="", title=None):
         self.agent = agent
+        self.title = title or agent   # the crew member's name first, e.g. "Neptune (cerebellum)"
         self.seal = seal   # the crew member's notary seal, stamped on the closing line
         self.backend = backend_label
         self.color = c256(color) if color is not None else CORAL
@@ -740,7 +741,7 @@ class ReplyBox:
 
     def open(self):
         if not self.opened:
-            head = f"{BOLD}{self.color}{self.icon} {self.agent}{RESET} {DIM}· {self.backend}{RESET}"
+            head = f"{BOLD}{self.color}{self.icon} {self.title}{RESET} {DIM}· {self.backend}{RESET}"
             print(f"{TEAL}{TL}{H}{RESET} {head}" if self.boxed else head)
             sys.stdout.write(self.gutter)
             self.opened = True

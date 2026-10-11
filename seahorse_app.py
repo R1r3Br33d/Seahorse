@@ -812,9 +812,14 @@ class Handler(BaseHTTPRequestHandler):
         if cmd == "end":
             return self.end_chat()
         with LOCK:
+            subs = []      # vote counts and other sub-panels a command shows (e.g. /law): fold them into the output
             if cmd == "team":
                 SESSION.emit = lambda event: None
+            else:
+                SESSION.emit = lambda event: subs.append(event) if event.get("type") == "sub" else None
             out = run_captured(sh.handle_command, SESSION, line)
+            shown = [f"{e['icon']} {e['name']}\n{plain(e['text'])}" for e in subs]
+            out = "\n\n".join(x for x in [*shown, out] if x and x.strip())
             SESSION.save() if SESSION.messages else None
         if cmd in ("theme", "config"):
             ui.apply_config(SESSION.config)

@@ -266,7 +266,7 @@ function renderAgents() {
     const h = a.horseman;
     b.innerHTML = `<span class="agent-icon">${agentGlyph(a.name, 18)}</span><span><span class="agent-name">${esc(a.crew || a.name)}</span>` +
       (a.crew ? `<span class="agent-crew">${a.penny ? `<span class="penny" title="shilling ${esc(a.penny)} - seat ${esc(a.penny)} at the council table">s${esc(a.penny)}</span>` : ""}${esc(a.name)}` +
-        (h ? `<span class="horse" title="${esc(h.rider)}, ${esc(h.horse)} - rides over ${esc(h.quarter)}, stands at ${esc(h.station)}">♞ ${esc(h.rider)}</span>` : "") +
+        (h ? `<span class="horse" title="${esc(h.rider)}, ${esc(h.horse)} - one of the four horsemen; rides over ${esc(h.quarter)}, stands at ${esc(h.station)}">♞</span>` : "") +
         (a.purse ? `<span class="purse" title="paid so far">$${(a.purse / 100).toFixed(2)}</span>` : "") + `</span>` : "") +
       `<span class="agent-purpose">${esc(a.purpose || a.description || "")}</span></span>`;
     $(".agent-icon", b).style.color = a.color;

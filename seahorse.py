@@ -515,7 +515,9 @@ class Session:
                 if summary:
                     system += "\n\nEarlier in this conversation (condensed to save space):\n" + summary
             self.apply_persona(agent)
-            box = ReplyBox(agent.name, backend.label(), agent.color, agent.icon, self.seal_for(agent))
+            member = crew.get(agent.name) if self.config.get("crew", True) is not False else None
+            title = f"{member['name']} ({agent.name})" if member and member.get("name") else agent.name
+            box = ReplyBox(agent.name, backend.label(), agent.color, agent.icon, self.seal_for(agent), title=title)
             spinner = Spinner(f"{agent.name} is thinking").start()
             try:
                 for piece in self.pieces(backend, system, messages):
@@ -2656,7 +2658,8 @@ def treasury_command(session, cmd, arg):
             raw = session._quick_call(judge, judge.slim_system(), treasury.law_prompt(bill, order, board), 900)
         votes = treasury.parse_votes(raw, order)
         if not votes:
-            ui.note("the council couldn't be reached to vote just now")
+            ui.note("the council couldn't be reached to vote just now" if raw is None else
+                    "the ballots came back unreadable - nothing was counted; try the bottle again")
             return print()
         treasury.record_votes(list(votes), "law ballot")   # a penny a ballot
         try:
