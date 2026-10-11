@@ -108,6 +108,13 @@ SECTIONS = [
          {"key": "council_revisions", "label": "Revisions per step", "kind": "number", "min": 0, "max": 2,
           "help": "How often a step can be sent back. After that its concerns travel forward with the work."},
      ]},
+    {"id": "treasury", "title": "Treasury", "icon": "¢",
+     "blurb": "Every agent is a penny. Ten pennies make a dime: a law. The laws make the bill: the constitution. "
+              "The dollar is the people: your goals, direction and future. Poseidon, the Judge, is Treasurer.",
+     "fields": [
+         {"key": "law_threshold", "label": "Ayes to mint a law", "kind": "number", "min": 6, "max": 10,
+          "help": "10 is a full dime: every penny must vote aye. Propose a law in chat with /law <text>."},
+     ]},
     {"id": "brains", "title": "Sub-agent brains", "icon": "≋",
      "blurb": "Inner councils that work on a message before Doc or Fiery Black answer it directly.",
      "fields": "sub_brains"},
@@ -240,7 +247,8 @@ def describe(session):
                 g["value"] = value(session, f["key"])
                 s["fields"].append(g)
         out.append(s)
-    return {"sections": out, "lobeStats": lobes.load_stats(), "councilStats": "\n".join(l.strip() if i < 2 else l for i, l in enumerate(__import__("council").seat_chart(session.config.get("council_seats")))) + "\n\n" + __import__("council").describe_stats().strip(), "lobeStatsText": lobes.describe_stats().strip(),
+    return {"sections": out, "lobeStats": lobes.load_stats(), "treasury": __import__("treasury").describe(__import__("council").seating(session.agents.agents, session.config.get("council_seats")), int(session.config.get("law_threshold", 10))),
+            "councilStats": "\n".join(l.strip() if i < 2 else l for i, l in enumerate(__import__("council").seat_chart(session.config.get("council_seats")))) + "\n\n" + __import__("council").describe_stats().strip(), "lobeStatsText": lobes.describe_stats().strip(),
             "approaches": lobes.APPROACHES, "data": data_summary(session),
             "character": {"title": _title(session), "piece": session.persona.character.get("tale", "")}}
 

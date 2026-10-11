@@ -544,6 +544,8 @@ def improve_prompt(session, prompt):
 # ---------------------------------------------------------------------------
 
 def app_state(session):
+    import council
+    order = council.seating(session.agents.agents, session.config.get("council_seats"))
     agents = []
     for a in session.agents.agents.values():
         spec = lens(a.name)
@@ -552,6 +554,7 @@ def app_state(session):
         agents.append({"name": a.name, "icon": ui.APP_ICONS.get(a.name) or ui.icon_for(a.name, a.icon),
                        "color": xterm_hex(a.color),
                        "crew": member.get("name", ""), "epithet": member.get("epithet", ""),
+                       "penny": f"¢{order.index(a.name) + 1:02d}" if a.name in order else "",
                        "seal": {"sign": sign, "motto": motto},
                        "description": a.description, "purpose": spec.get("purpose") or a.description,
                        "skill": spec.get("skill", ""), "aliases": a.aliases})

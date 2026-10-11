@@ -41,6 +41,7 @@ from pathlib import Path
 
 import council
 import crew
+import treasury
 import lobes
 import ui
 from agency import AGENCY, CONSCIENCE_MIN_WORDS, DEPARTMENTS, FREQUENCY, Agency
@@ -365,6 +366,10 @@ class Session:
                          f"{ep['summary']}")
         if agent.role_prompt():
             parts.append(agent.role_prompt())
+        if agent.persona:
+            for block in (treasury.constitution_prompt(), treasury.dollar_prompt()):
+                if block:
+                    parts.append(block)
         if self.skills.prompt(active_skills):
             parts.append(self.skills.prompt(active_skills))
         return "\n\n".join(parts)
@@ -767,6 +772,7 @@ class Session:
                 self.messages.pop()
         else:
             self._record(agent.name, start)
+            treasury.record_work(agent.name, text)
             self.after_reply(agent, text)
 
     # ------------------------------------------------------------------ the council (auto mode)
@@ -783,6 +789,7 @@ class Session:
                            max_steps=int(self.config.get("council_steps", council.DEFAULTS["council_steps"])),
                            seats=self.config.get("council_seats"))
         council.record(d)
+        treasury.record_votes(list(d.votes))   # every ballot is a penny spent
         self.show_sub(self.agents.default, {"name": "council vote", "icon": "⚑", "color": 252, "lobe": True,
                                             "kind": "council"}, "\n".join(d.lines()))
         if len(d.steps) > 1:
@@ -835,6 +842,7 @@ class Session:
             if not work:
                 break   # the next agent carries on with whatever progress exists
             done.append(f"[step {i} · {name} - {council.PART.get(name, '')}]\n{work}")
+            treasury.record_work(name, text)   # the work passes on, penny to penny
         return "\n\n".join(done), "\n".join(concerns)
 
     def pop_relay_notes(self):
@@ -1241,6 +1249,11 @@ HELP = f"""{BOLD}Commands{RESET}
   /persona [use|save|delete|new] <name>   saved personas (the Seahorse is built in)
   /council                  how all ten agents voted on who answers (auto mode), and the stats
   /council on|off · steps <n> · approval on|off · threshold <x> · revisions <n>   tune the council
+  /treasury                 the treasury: every agent a penny, the Judge as Treasurer, the constitution
+  /law <text>               propose a law: all ten pennies vote; a full dime of ayes mints it into the constitution
+  /laws · /law repeal <n>   the constitution (the bill, up to ten laws) · repeal one
+  /budget                   the dollar is the people: your goals, direction, future - and what's in the budget
+  /budget add <goal> · set <n> <cents> · drop <n>   split the dollar's 100¢ across your goals
   /council seats            the council table: votes run 01→05 along the top, then 06→10 back; 1+ breaks ties
   /council seat <1-10> <agent>   reseat an agent (swaps with whoever sat there) · /council reseat for the default
   /crew                     his crew: every agent's character (name, post, greeting)
@@ -2195,6 +2208,8 @@ def handle_command(session, line):
         crew_command(session, arg)
     elif cmd == "council":
         council_command(session, arg)
+    elif cmd in ("treasury", "law", "laws", "budget", "dollar", "goal", "goals"):
+        treasury_command(session, cmd, arg)
     elif cmd == "units":
         import units as U
         m = re.match(r"^\s*(-?[\d.]+(?:e-?\d+)?)\s+(.+?)\s+(?:to|in|->)\s+(.+?)\s*$", arg) or \
@@ -2336,6 +2351,48 @@ def load_extra_instructions():
         return SYSTEM_PROMPT_FILE.read_text().strip()
     except OSError:
         return ""
+
+
+def treasury_command(session, cmd, arg):
+    """/treasury, /laws, /law <text>, /law repeal <n>."""
+    cfg = session.config
+    order = council.seating(session.agents.agents, cfg.get("council_seats"))
+    threshold = int(cfg.get("law_threshold", treasury.DEFAULTS["law_threshold"]))
+    words = arg.split()
+    if cmd in ("budget", "dollar", "goal", "goals"):
+        if words[:1] == ["add"] and len(words) > 1:
+            g = treasury.add_goal(arg.split(None, 1)[1])
+            ui.note(f"added to the dollar: {g['text']}" if g else "the dollar holds up to ten goals")
+        elif words[:1] in (["drop"], ["remove"]) and len(words) == 2 and words[1].isdigit():
+            g = treasury.drop_goal(int(words[1]))
+            ui.note(f"dropped: {g['text']}" if g else "no goal by that number")
+        elif words[:1] == ["set"] and len(words) == 3 and words[1].isdigit() and words[2].rstrip("¢c").isdigit():
+            err = treasury.set_cents(int(words[1]), int(words[2].rstrip("¢c")))
+            if err:
+                ui.note(err)
+        print(treasury.budget_text())
+        ui.note("/budget add <goal> · /budget set <n> <cents> · /budget drop <n> · the dollar is 100¢ across your goals")
+        return print()
+    if cmd == "law" and words[:1] == ["repeal"] and len(words) == 2 and words[1].isdigit():
+        gone = treasury.repeal(int(words[1]))
+        ui.note(f"repealed: \"{gone['text']}\" - the dime goes back to the treasury" if gone else "no law by that number (/laws)")
+    elif cmd == "law" and arg.strip():
+        judge = session.agents.get(treasury.TREASURER) or session.agents.default
+        with Spinner("all ten pennies are voting"):
+            raw = session._quick_call(judge, judge.slim_system(),
+                                      treasury.law_prompt(arg.strip(), order, treasury.laws()), 900)
+        votes = treasury.parse_votes(raw, order)
+        if not votes:
+            ui.note("the council couldn't be reached to vote just now")
+            return print()
+        status, _entry = treasury.propose(arg.strip(), votes, threshold)
+        session.show_sub(judge, {"name": "the Treasurer's count", "icon": ui.icon_for(judge.name, judge.icon),
+                                 "color": judge.color, "lobe": True, "kind": "approval"},
+                         "\n".join(treasury.vote_lines(arg.strip(), votes, threshold, status, order)))
+    else:
+        print(treasury.describe(order, threshold))
+        ui.note("/law <text> propose a law · /law repeal <n> · /laws · a law needs a full dime of ayes")
+    print()
 
 
 def council_command(session, arg):

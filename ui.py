@@ -70,6 +70,7 @@ DEFAULTS = {
     "council_approval": True,  # approval vote between relay steps
     "council_threshold": 0.66, # share of approvers needed to continue
     "council_revisions": 1,    # times a step can be sent back
+    "law_threshold": 10,       # ayes needed to mint a law (10 pennies = a dime)
 }
 
 THEMES = {

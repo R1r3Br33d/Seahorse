@@ -12,7 +12,7 @@ let FIELD_ID = 0;
 
 // Each settings section's glyph.
 const SECTION_GLYPH = {
-  general: "compass", council: "scales", models: "cloud", character: "seahorse", crew: "anchor", lobes: "coral", brains: "knot",
+  general: "compass", council: "scales", treasury: "bottle", models: "cloud", character: "seahorse", crew: "anchor", lobes: "coral", brains: "knot",
   inner: "pearl", privacy: "mask", look: "starfish", images: "porthole", data: "logbook",
 };
 
@@ -91,6 +91,12 @@ function renderSection() {
   main.appendChild(box);
   if (s.id === "lobes") main.appendChild(lobesExtras());
   if (s.id === "character") main.appendChild(characterExtras());
+  if (s.id === "treasury") {
+    const card = document.createElement("div");
+    card.className = "set-card";
+    card.innerHTML = `<h3 class="set-card-title">The ledger, the bill and the budget</h3><p class="muted small">Propose a law with <code>/law &lt;text&gt;</code>. Add your goals to the dollar with <code>/budget add &lt;goal&gt;</code> and set shares with <code>/budget set 1 60</code>.</p><pre class="prompt-preview">${esc(SET.treasury || "")}</pre>`;
+    main.appendChild(card);
+  }
   if (s.id === "council") {
     const card = document.createElement("div");
     card.className = "set-card";

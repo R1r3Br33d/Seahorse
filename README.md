@@ -88,6 +88,7 @@ Seahorse: memory, notebooks, profile and character.
 | `memory.py` | Long-term memory: facts, past conversations, condensing long chats |
 | `agents.py` | The ten agents, defined once in a compact table: eight brain regions, plus Doc and Fiery Black as the left and right lobes |
 | `crew.py` | The crew: a character for every agent from the 11 steps, their notary seals, the loyalty pledge and the chant |
+| `treasury.py` | The treasury: agents as pennies, laws as dimes, the constitution (the bill), the dollar (your goals) and the budget |
 | `council.py` | The council: all ten agents vote on who answers, relays with approval steps |
 | `lobes.py` | The lobe vote: Doc and Fiery Black ballot in parallel, the tally, and the Judge on close splits |
 | `settings.py` | Every setting described once, validated and applied (the app's Settings tab) |
@@ -197,15 +198,18 @@ answers in their own voice:
 | Agent | Crew member | Post | Seal |
 |---|---|---|---|
 | hippocampus | The Seahorse | the captain himself | ♆ HELM · BOW · STERN |
-| broca | Mercy Quill, the Ship's Scribe | scribe and letter-writer | ✒ TEN WORDS A PENNY |
-| parietal | Tobias Wren, the Navigator | navigator and reckoner | ✶ FIXED BY THE STARS |
-| cerebellum | Kwame 'Plumb' Asante, the Ship's Carpenter | carpenter and shipwright | ⚒ PLUMB AND SQUARE |
-| wernicke | Auntie Sefa, the Ropemistress | teacher of the green hands | ∞ ONE TURN AT A TIME |
-| prefrontal | Isabeau Laroche, the Quartermaster | plans, stores and articles | ⚑ ARTICLES SIGNED |
-| cingulate | Gideon Crane, the Bosun | rigging, inspection | ⚓ EVERY LINE EVERY MORNING |
-| doc | Doc Elias Fairweather, the Ship's Surgeon | surgeon, scholar, logbooks | ☤ ONLY WHAT I SAW |
-| fiery-black | Fiery Black, the Dark Lookout | lookout and master-at-arms | ◉ NEVER ASLEEP ON WATCH |
-| judge | Judge Absalom Hale, the Magistrate | magistrate, weights and measures | ⚖ THE SCALES ARE LEVEL |
+| broca | **Triton**, once Mercy Quill, the Ship's Scribe | scribe and letter-writer | ✒ TEN WORDS A PENNY |
+| parietal | **Glaucus**, once Tobias Wren, the Navigator | navigator and reckoner | ✶ FIXED BY THE STARS |
+| cerebellum | **Proteus**, once Kwame 'Plumb' Asante, the Ship's Carpenter | carpenter and shipwright | ⚒ PLUMB AND SQUARE |
+| wernicke | **Tethys**, once Auntie Sefa, the Ropemistress | teacher of the green hands | ∞ ONE TURN AT A TIME |
+| prefrontal | **Amphitrite**, once Isabeau Laroche, the Quartermaster | plans, stores and articles | ⚑ ARTICLES SIGNED |
+| cingulate | **Phorcys**, once Gideon Crane, the Bosun | rigging, inspection | ⚓ EVERY LINE EVERY MORNING |
+| doc | **Nereus** (Doc), once Elias Fairweather, the Ship's Surgeon | surgeon, scholar, logbooks | ☤ ONLY WHAT I SAW |
+| fiery-black | **Leviathan** (Fiery Black), the Dark Lookout | lookout and master-at-arms | ◉ NEVER ASLEEP ON WATCH |
+| judge | **Poseidon**, once Judge Absalom Hale, the Magistrate | magistrate, Treasurer, weights and measures | ⚖ THE SCALES ARE LEVEL |
+
+The sea renamed each of them when it took them; call any agent by their sea
+name too (`@poseidon`, `@triton`, `@leviathan` ...).
 
 Every crew member is built from the same 11 steps as the captain: identity
 (with their **notary seal**, a sign and a motto), backstory, tale, voice,
@@ -266,6 +270,27 @@ extra. The vote, each relay step and each approval show as notes you can
 open. `/council` shows the last vote and the stats; `/council steps <1-4>`,
 `/council approval on|off`, `/council threshold <x>`, `/council revisions <n>`
 and `/council off` tune it, or use Settings → Council.
+
+### The treasury: pennies, dimes, the bill and the dollar
+
+- **Pennies.** Every agent is a penny, numbered by council seat (¢01 the
+  Seahorse ... ¢10 Poseidon). Every ballot cast and every piece of work carried
+  is counted in pennies, and work passes through the agents one by one.
+- **Treasurer.** Poseidon, the Judge, keeps the ledger, counts the votes and
+  mints the dimes.
+- **Dimes are law.** `/law <text>` proposes a rule. All ten pennies vote aye or
+  nay in seat order; a full dime of ayes (all ten, by default) mints it. A law
+  that would conflict with honesty, your wellbeing or safety is voted down.
+- **The bill is the constitution.** Up to ten laws, followed by every agent.
+  They never outrank the core values. `/laws`, `/law repeal <n>`.
+- **The dollar is the people.** You: your goals, direction and future. The
+  budget splits its 100¢ across your goals (`/budget add <goal>`,
+  `/budget set <n> <cents>`, `/budget drop <n>`), every agent keeps them in mind,
+  and each penny of work is counted against the goal it served, so `/budget`
+  shows what's in the budget and where the crew's effort actually went.
+
+`/treasury` shows the whole ledger. Settings → Treasury sets how many ayes a law
+needs.
 
 ### The two lobes and the vote
 
