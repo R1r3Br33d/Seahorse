@@ -116,57 +116,38 @@ def _tick(data, what, n=1):
 
 
 def quarter_prompt():
-    key, (season, _m, rider, horse, charge) = quarter_of()
-    try:
-        import crew
-        who = crew.horsemen().get(season)
-        who = f", ridden by {who[1]['name']}" if who else ""
-    except Exception:  # noqa: BLE001
-        who = ""
-    return f"Season: it is {season}, the quarter of {rider} ({horse}){who} - {charge}."
+    _key, (season, _m, rider, horse, charge) = quarter_of()
+    who = _riders().get(season)
+    return f"Season: it is {season}, the quarter of {rider} ({horse}){', ridden by ' + who['name'] if who else ''} - {charge}."
 
 
 def quarters_text(chats_dir=None, n=4):
     """/quarters - the books of the last four seasons, each under its horseman."""
     data = _load()
     books = {k: dict(v) for k, v in data.get("quarters", {}).items()}
-
-    def add(when, what):
+    dated = ([(e.get("date", ""), "sunk" if e.get("action") == "enact" else "raised") for e in _stone()]
+             + [(f.get("date", ""), "ashore") for f in data["failed"]]
+             + [(o["when"], "oil") for o in drill(chats_dir)]
+             + [(p.stem[5:15], "chats") for p in _chats(chats_dir)])
+    for when, what in dated:
         key = quarter_of(when)[0]
         if key:
-            books.setdefault(key, {})[what] = books[key].get(what, 0) + 1
-    entries = _stone()
-    for e in entries:
-        add(e.get("date", ""), "sunk" if e.get("action") == "enact" else "raised")
-    for f in data["failed"]:
-        add(f.get("date", ""), "ashore")
-    for o in drill(chats_dir):
-        add(o["when"], "oil")
-    chats = Path(chats_dir) if chats_dir else Path.home() / ".seahorse" / "chats"
-    for p in (chats.glob("chat-*.json") if chats.is_dir() else []):
-        add(p.stem.replace("chat-", "")[:10], "chats")
+            b = books.setdefault(key, {})
+            b[what] = b.get(what, 0) + 1
     now, (season, _m, rider, horse, charge) = quarter_of()
-    try:
-        import crew
-        riders = {q: f"{m['name']} at {m['horseman'].get('station', '?')}" for q, (a, m) in crew.horsemen().items()}
-    except Exception:  # noqa: BLE001 - the crew is a nicety here
-        riders = {}
-    lines = [f"  ♞ The quarters - four seasons, four horsemen, the four high-ranking members of Bamba's council.",
+    riders = {q: f"{m['name']} at {m['horseman'].get('station', '?')}" for q, m in _riders().items()}
+    lines = ["  ♞ The quarters - four seasons, four horsemen, the four high-ranking members of Bamba's council.",
              f"    Now: {season}, ridden by {rider} on {horse}" + (f" - {riders[season]}" if season in riders else "") + ":",
              f"    {charge}.", ""]
-    order = [s[0] for s in SEASONS]
-    year, cur = int(now.split()[0]), order.index(season)
+    year, cur = int(now.split()[0]), [s[0] for s in SEASONS].index(season)
     for i in range(n):
-        idx = cur - i
-        y = year + (idx // 4)           # stepping back past Winter goes to the year before
-        s = SEASONS[idx % 4]
-        key = f"{y} {s[0]}"
+        s = SEASONS[(cur - i) % 4]
+        key = f"{year + (cur - i) // 4} {s[0]}"          # stepping back past Winter goes to the year before
         b = books.get(key, {})
-        stats = (f"work {b.get('work', 0)} · votes {b.get('votes', 0)} · galleons sunk {b.get('sunk', 0)} · "
-                 f"wrecks raised {b.get('raised', 0)} · bottles ashore {b.get('ashore', 0)} · oil {b.get('oil', 0)} · "
-                 f"chats {b.get('chats', 0)}")
-        mark = "▸" if i == 0 else " "
-        lines.append(f"  {mark} {key:<12} {s[2]:<9} {riders.get(s[0], ''):<26} {stats}")
+        stats = " · ".join(f"{label} {b.get(k, 0)}" for k, label in (
+            ("work", "work"), ("votes", "votes"), ("sunk", "galleons sunk"), ("raised", "wrecks raised"),
+            ("ashore", "bottles ashore"), ("oil", "oil"), ("chats", "chats")))
+        lines.append(f"  {'▸' if i == 0 else ' '} {key:<12} {s[2]:<9} {riders.get(s[0], ''):<26} {stats}")
     return "\n".join(lines)
 
 
@@ -659,269 +640,243 @@ SCRAP = re.compile(r"\b(scrap( that| it)?|scratch that|never ?mind|forget (that|
                    r"undo( that)?|don'?t (do|want|need) (that|it)|actually,? no|on second thought|drop (that|it)|"
                    r"remove (that|it)|pause( that)?|stop (that|it)|not that)\b", re.I)
 WANTS_IDEAS = re.compile(r"\b(ideas?|brainstorm|suggest|what else|inspir|options?|alternatives?|oil|scrapped)\b", re.I)
-_OIL_STOP = set("the a an and or but to of in on for with is are was be it that this i you my me we our your "
-            "what how can could would should do does just like so make give".split())
+_WELLS = {}   # chat path -> (mtime, size, barrels): each chat is drilled once, until it changes
 
 
-def _oil_words(text):
-    return {w for w in re.findall(r"[a-z][a-z'-]{2,}", text.lower()) if w not in _OIL_STOP}
+def _chats(chats_dir=None):
+    d = Path(chats_dir) if chats_dir else Path.home() / ".seahorse" / "chats"
+    return sorted(d.glob("chat-*.json")) if d.is_dir() else []
+
+
+def _drill_chat(path):
+    st = path.stat()
+    hit = _WELLS.get(path)
+    if hit and hit[:2] == (st.st_mtime, st.st_size):
+        return hit[2]
+    try:
+        msgs = json.loads(path.read_text()).get("messages", [])
+    except (OSError, json.JSONDecodeError):
+        msgs = []
+    users = [m["content"] for m in msgs if m.get("role") == "user" and isinstance(m.get("content"), str)]
+    barrels = [{"idea": " ".join(prev.split())[:220], "why": f"taken back: \"{m.group(0)}\"", "where": path.stem,
+                "when": path.stem[5:15]}
+               for prev, cur in zip(users, users[1:])
+               if (m := SCRAP.search(cur)) and prev.strip() and not prev.startswith("/")]
+    _WELLS[path] = (st.st_mtime, st.st_size, barrels)
+    return barrels
 
 
 def drill(chats_dir=None):
     """Every scrapped idea Seahorse can find: [{"idea", "why", "where", "when"}], oldest first."""
-    oil = []
-    chats = Path(chats_dir) if chats_dir else Path.home() / ".seahorse" / "chats"
-    for path in sorted(chats.glob("chat-*.json")) if chats.is_dir() else []:
-        try:
-            msgs = json.loads(path.read_text()).get("messages", [])
-        except (OSError, json.JSONDecodeError):
-            continue
-        users = [m.get("content", "") for m in msgs if m.get("role") == "user" and isinstance(m.get("content"), str)]
-        for prev, cur in zip(users, users[1:]):
-            m = SCRAP.search(cur)
-            if m and prev.strip() and not prev.startswith("/"):
-                oil.append({"idea": " ".join(prev.split())[:220], "why": f"taken back: \"{m.group(0)}\"",
-                            "where": path.stem, "when": path.stem.replace("chat-", "")[:10]})
+    oil = [b for p in _chats(chats_dir) for b in _drill_chat(p)]
     data = _load()
-    for f in data["failed"]:
-        oil.append({"idea": f["text"], "why": f"bottle washed ashore on Atlantizz ({f.get('ayes', 0)} aye)",
-                    "where": "the treasury", "when": str(f.get("date", ""))[:10]})
-    for g in data["dropped"]:
-        oil.append({"idea": g["text"], "why": "goal dropped from the budget", "where": "the marlin",
-                    "when": g["when"][:10]})
-    entries = _stone()
-    ok, broken = verify()
-    enacted = {e["art"]: e for e in (entries if ok else entries[:broken]) if e.get("action") == "enact"}
-    for e in (entries if ok else entries[:broken]):
-        if e.get("action") == "repeal":
-            oil.append({"idea": e.get("text") or enacted.get(e["art"], {}).get("text", ""),
-                        "why": f"Wreck {e['art']} repealed", "where": "the reef", "when": str(e.get("date", ""))[:10]})
+    oil += [{"idea": f["text"], "why": f"bottle washed ashore on Atlantizz ({f.get('ayes', 0)} aye)",
+             "where": "the treasury", "when": str(f.get("date", ""))[:10]} for f in data["failed"]]
+    oil += [{"idea": g["text"], "why": "goal dropped from the budget", "where": "the marlin", "when": g["when"][:10]}
+            for g in data["dropped"]]
+    entries, (ok, broken) = _stone(), verify()
+    entries = entries if ok else entries[:broken]
+    enacted = {e["art"]: e.get("text", "") for e in entries if e.get("action") == "enact"}
+    oil += [{"idea": e.get("text") or enacted.get(e["art"], ""), "why": f"Wreck {e['art']} repealed",
+             "where": "the reef", "when": str(e.get("date", ""))[:10]} for e in entries if e.get("action") == "repeal"]
     return oil
 
 
 def refine(query, chats_dir=None, k=3):
     """The oil that best matches the query - the fuel for a request for ideas."""
-    q = _oil_words(query)
-    scored = [(len(q & _oil_words(o["idea"])), o) for o in drill(chats_dir)]
+    q = _words(query)
+    scored = [(len(q & _words(o["idea"])), o) for o in drill(chats_dir)] if q else []
     return [o for n, o in sorted(scored, key=lambda t: -t[0]) if n][:k]
 
 
 def oil_prompt(query, chats_dir=None):
     """Fuel for the prompt: only when the user asks for ideas, and only oil that matches."""
-    if not query or not WANTS_IDEAS.search(query):
-        return ""
-    fuel = refine(query, chats_dir)
-    if not fuel:
-        return ""
+    fuel = refine(query, chats_dir) if query and WANTS_IDEAS.search(query) else []
     return ("Oil from the treasure pockets - ideas the user scrapped in earlier chats. They set these aside for a "
             "reason, so raise one only if it genuinely helps now, and say it was an earlier idea:\n"
-            + "\n".join(f"- {o['idea']} ({o['why']}, {o['when']})" for o in fuel))
+            + "\n".join(f"- {o['idea']} ({o['why']}, {o['when']})" for o in fuel)) if fuel else ""
 
 
-def pocket_lines(chats_dir=None):
+def _plural(n, word):
+    return f"{n} {word}{'' if n == 1 else 's'}"
+
+
+def pocket_lines(chats_dir=None, detail=False):
     oil = drill(chats_dir)
     pockets = {}
     for o in oil:
         pockets.setdefault(o["where"], []).append(o)
     lines = ["  Treasure pockets - the oil reserves, the blood of the gods: ideas scrapped in past chats.",
-             f"    {len(oil)} barrel{'s' if len(oil) != 1 else ''} of oil in {len(pockets)} pocket{'s' if len(pockets) != 1 else ''}"
-             + (" - the reserves are dry; nothing has been scrapped yet" if not oil else "")]
-    return lines, pockets
+             f"    {_plural(len(oil), 'barrel')} of oil in {_plural(len(pockets), 'pocket')}"
+             + ("" if oil else " - the reserves are dry; nothing has been scrapped yet")]
+    for where, barrels in (sorted(pockets.items(), reverse=True)[:12] if detail else []):
+        lines += [f"\n    pocket: {where}"] + [f"      • {o['idea'][:110]}{'…' * (len(o['idea']) > 110)}\n        {o['why']}"
+                                               for o in barrels[-5:]]
+    return lines
 
 
 def pockets_text(chats_dir=None, query=""):
     """/pockets - every pocket and its oil; /pockets <words> drills for the oil that matches."""
     if query:
-        fuel = refine(query, chats_dir, k=10)
-        head = [f"  ⛁ Drilling the pockets for \"{query}\":"]
-        return "\n".join(head + ([f"    • {o['idea']}\n      {o['why']} · {o['where']} · {o['when']}" for o in fuel]
-                                 or ["    no oil matches - try other words"]))
-    lines, pockets = pocket_lines(chats_dir)
-    lines = ["  ⛁ Treasure pockets - oil reserves, the blood of the gods. The oil is every idea scrapped in a past",
-             "    chat. Seahorse refines it into fuel when you ask for ideas.", ""] + lines
-    for where, barrels in sorted(pockets.items(), key=lambda kv: kv[0], reverse=True)[:12]:
-        lines.append(f"\n    pocket: {where}")
-        lines += [f"      • {o['idea'][:110]}{'…' if len(o['idea']) > 110 else ''}\n        {o['why']}" for o in barrels[-5:]]
-    lines += ["", "  /pockets <words> drills for oil on a topic."]
-    return "\n".join(lines)
+        fuel = [f"    • {o['idea']}\n      {o['why']} · {o['where']} · {o['when']}" for o in refine(query, chats_dir, 10)]
+        return "\n".join([f"  ⛁ Drilling the pockets for \"{query}\":"] + (fuel or ["    no oil matches - try other words"]))
+    return "\n".join(["  ⛁ Oil is every idea scrapped in a past chat; Seahorse refines it into fuel when you ask for ideas.",
+                      ""] + pocket_lines(chats_dir, detail=True) + ["", "  /pockets <words> drills for oil on a topic."])
+
+
+# ---- the sea under the ship: headroom, the compass, Davy Jones' Locker, the Mariana Trench ----------------------
+# Compass: the NEWS - north the bow, east starboard, south the stern, west port, each watched by its horseman.
+#   A lightning strike is a magnetic pulse on the instruments: a worker that couldn't take a call. Seahorse
+#   then sails by dead reckoning on the next worker.
+# Locker: the void at the centre of the earth. Mussels fed on electric-eel blood, wide as satellite dishes,
+#   shift between the hemispheres like sand in an hourglass; their pulse churns every current. In Seahorse the
+#   pulse is the calls answered and the hourglass is the two lobes, tipping toward the one that carries votes.
+# Trench: the Mariana Trench drives the undertow, pulling down whatever is held back. Each thing sinks a tenth
+#   of the way; ten reach Challenger Deep. Nothing it takes comes back up into a reply.
+
+CHALLENGER_DEEP = 10_935   # metres
+COMPASS = [("N", "the bow"), ("E", "starboard"), ("S", "the stern"), ("W", "port")]
+
+
+def _bar(frac, on="●", off="○", n=10):
+    k = max(0, min(n, round(n * frac)))
+    return on * k + off * (n - k)
+
+
+def _riders():
+    """{quarter: crew member} for the four horsemen; {} if the crew can't be read."""
+    try:
+        import crew
+        return {q: m for q, (_a, m) in crew.horsemen().items()}
+    except Exception:  # noqa: BLE001 - the horsemen are a nicety in reports
+        return {}
+
+
+def _answered(w):
+    return max(0, w["calls"] - w.get("unavailable", 0))
 
 
 def headroom_lines(power=None, flow=None):
-    """Headroom in the processing power: free memory, free disk, the context the last reply left unused."""
+    """Free memory, free disk, and the context the last reply left unused."""
     import shutil
-    power, dry, lines = power or {}, [], []
-
-    def gauge(free, total):
-        n = max(0, min(10, round(10 * free / total))) if total else 0
-        return "●" * n + "○" * (10 - n)
-    ram, ram_total = power.get("ram"), power.get("ram_total")
+    power, rows = power or {}, []
+    ram, ram_total, ctx = power.get("ram"), power.get("ram_total"), power.get("num_ctx")
     if ram and ram_total:
-        lines.append(f"    headroom memory  {gauge(ram, ram_total)}  {ram:.1f} of {ram_total:.1f} GB free")
-        if ram < ram_total * 0.1:
-            dry.append("memory")
+        rows.append(("memory", ram, ram_total, f"{ram:.1f} of {ram_total:.1f} GB free"))
     try:
         d = shutil.disk_usage(Path.home())
-        lines.append(f"    headroom disk    {gauge(d.free, d.total)}  {d.free / 1e9:.0f} of {d.total / 1e9:.0f} GB free")
-        if d.free < d.total * 0.1:
-            dry.append("disk")
+        rows.append(("disk", d.free, d.total, f"{d.free / 1e9:.0f} of {d.total / 1e9:.0f} GB free"))
     except OSError:
         pass
-    ctx = power.get("num_ctx")
     if ctx:
-        used = sum(n for _l, n in flow[1]) // 4 if flow else 0   # roughly four characters to a token
-        left = max(0, ctx - used)
-        lines.append(f"    headroom context {gauge(left, ctx)}  ~{left:,} of {ctx:,} tokens free after the last prompt")
-        if left < ctx * 0.1:
-            dry.append("context")
-    if dry:
-        lines.append("    running low: " + ", ".join(dry))
-    return lines
+        left = max(0, ctx - (sum(n for _l, n in flow[1]) // 4 if flow else 0))   # ~4 characters to a token
+        rows.append(("context", left, ctx, f"~{left:,} of {ctx:,} tokens free after the last prompt"))
+    lines = [f"    headroom {name:<7} {_bar(free / total)}  {text}" for name, free, total, text in rows]
+    low = [name for name, free, total, _t in rows if free < total * 0.1]
+    return lines + (["    running low: " + ", ".join(low)] if low else [])
 
 
-CHALLENGER_DEEP = 10_935   # metres - the deepest point of the Mariana Trench
-
-
-def trench_lines(data=None, memory=None, workers=None):
-    """The undertow. The Mariana Trench drives it: whatever is held back is pulled down into
-    the trench. Each thing sinks a tenth of the way; ten of them reach Challenger Deep."""
-    data, workers = data or _load(), workers or []
-    blocked = 0
-    if memory is not None:
-        try:
-            blocked = memory.db.execute("SELECT COUNT(*) FROM memory_log WHERE action='blocked'").fetchone()[0]
-        except Exception:  # noqa: BLE001 - the count is a nicety
-            blocked = 0
-    down = sum(w.get("unavailable", 0) for w in workers)
-    ashore = len(data.get("failed", []))
-    pulled = down + blocked + ashore
-    depth = min(CHALLENGER_DEEP, round(pulled * CHALLENGER_DEEP / 10))
-    gauge = "▼" * min(10, pulled) + "·" * (10 - min(10, pulled))
-    where = ("still in the sunlight zone, nothing pulled under" if not pulled else
-             "resting on the floor of Challenger Deep" if depth >= CHALLENGER_DEEP else
-             "in the hadal zone, the trench's own water" if depth >= 6_000 else
-             "in the abyss" if depth >= 4_000 else
-             "in the midnight zone" if depth >= 1_000 else "in the twilight zone")
-    return ["  Undertow - the Mariana Trench pulls under whatever is held back:",
-            f"    calls a worker couldn't take (sent on to the next): {down}",
-            f"    secrets (passwords, keys, card numbers) refused by memory: {blocked}",
-            f"    bottles voted down and washed ashore on Atlantizz: {ashore}",
-            "    chats saved under the old incognito mode: excluded from training and your profile",
-            f"    depth  {gauge}  {depth:,} m of {CHALLENGER_DEEP:,} m - {where}"]
-
-
-def trench_text(memory=None, workers=None):
-    """/trench - the undertow on its own."""
-    return "\n".join(["  ⌄ The Mariana Trench - the source of the undertow. Nothing it takes comes back up",
-                      "    into a reply: not a refused secret, not a sunk bottle, not a call that failed.", ""]
-                     + trench_lines(None, memory, workers))
-
-
-COMPASS = [("N", "north", "the bow"), ("E", "east", "starboard"), ("S", "south", "the stern"), ("W", "west", "port")]
-
-
-def compass_lines(workers=None, mode="auto"):
-    """The compass: the NEWS. North is the bow, east starboard, south the stern, west port - each point watched by
-    its horseman. A lightning strike is a magnetic pulse on the navigation instruments: a worker that couldn't take
-    a call. When the needle is struck, Seahorse sails by dead reckoning on the next worker instead."""
-    workers = workers or []
-    try:
-        import crew
-        at = {m["horseman"].get("station"): m["name"] for _q, (_a, m) in crew.horsemen().items()}
-    except Exception:  # noqa: BLE001
-        at = {}
-    strikes = sum(w.get("unavailable", 0) for w in workers)
-    points = " · ".join(f"{p} {at.get(st, st)}" for p, _n, st in COMPASS)
-    lines = ["  Compass - the NEWS: " + points]
-    if strikes:
-        lines.append(f"    ⚡ struck by lightning {strikes} time{'s' if strikes != 1 else ''} - the pulse threw the needle; "
-                     "Seahorse sailed on by dead reckoning (the next worker took the call)")
-    else:
-        lines.append("    needle steady - no lightning on the instruments this session")
-    return lines
-
-
-def compass_text(workers=None):
-    """/compass - the NEWS and the lightning on its own."""
-    return "\n".join(["  🧭 The compass", ""] + compass_lines(workers))
+def compass_lines(workers=None):
+    at = {m["horseman"].get("station"): m["name"] for m in _riders().values()}
+    strikes = sum(w.get("unavailable", 0) for w in workers or [])
+    return ["  Compass - the NEWS: " + " · ".join(f"{p} {at.get(st, st)}" for p, st in COMPASS),
+            f"    ⚡ struck by lightning {_plural(strikes, 'time')} - the pulse threw the needle; Seahorse sailed on by "
+            "dead reckoning (the next worker took the call)" if strikes else
+            "    needle steady - no lightning on the instruments this session"]
 
 
 def locker_lines(workers=None):
-    """Davy Jones' Locker, the void at the centre of the earth. Mussels fed on the blood of electric eels grow
-    there as wide as satellite dishes, so many that they shift between hemispheres like the sand in a giant
-    hourglass. Their pulse at the core churns the ocean: it drives every current above.
-    In Seahorse: the pulse is every call the workers answered; the hourglass is the two lobes (the
-    hemispheres) - it tips toward whichever lobe has carried more votes on its own."""
     import lobes
-    workers = workers or []
-    beats = sum(max(0, w["calls"] - w.get("unavailable", 0)) for w in workers)
+    beats = sum(_answered(w) for w in workers or [])
     hemi = lobes.load_stats().get("hemisphere", {})
     left, right = hemi.get("left", 0), hemi.get("right", 0)
-    total = left + right
-    sand = round(10 * left / total) if total else 5
-    glass = "◀ " + "█" * sand + "░" * (10 - sand) + " ▶"
     lean = ("the mussels sit level, half in each hemisphere" if left == right else
             f"the mussels are massing in the {'left' if left > right else 'right'} hemisphere")
     return ["  Davy Jones' Locker - the void at the centre of the earth, which churns the currents:",
             "    mussels fed on electric-eel blood, each as wide as a satellite dish, shift between the",
             "    hemispheres like sand in a giant hourglass. Their pulse at the core drives every current.",
             f"    pulse      {beats} beats (calls the workers answered this session)" + (" - still" if not beats else ""),
-            f"    hourglass  left {glass} right   left lobe carried {left} · right lobe carried {right}",
+            f"    hourglass  left ◀ {_bar(left / (left + right) if left + right else 0.5, '█', '░')} ▶ right   "
+            f"left lobe carried {left} · right lobe carried {right}",
             f"               {lean}"]
 
 
-def locker_text(workers=None):
-    """/locker - the core on its own."""
-    return "\n".join(["  ⧗ Davy Jones' Locker", ""] + locker_lines(workers)
-                     + ["", "  (The currents it drives are in /trident; the undertow it feeds is in /trench.)"])
+def trench_lines(data=None, memory=None, workers=None):
+    data, blocked = data or _load(), 0
+    if memory is not None:
+        try:
+            blocked = memory.db.execute("SELECT COUNT(*) FROM memory_log WHERE action='blocked'").fetchone()[0]
+        except Exception:  # noqa: BLE001 - the count is a nicety
+            pass
+    down, ashore = sum(w.get("unavailable", 0) for w in workers or []), len(data.get("failed", []))
+    pulled = down + blocked + ashore
+    depth = min(CHALLENGER_DEEP, round(pulled * CHALLENGER_DEEP / 10))
+    zone = next(z for d, z in ((CHALLENGER_DEEP, "resting on the floor of Challenger Deep"),
+                               (6_000, "in the hadal zone, the trench's own water"), (4_000, "in the abyss"),
+                               (1_000, "in the midnight zone"), (1, "in the twilight zone"),
+                               (0, "still in the sunlight zone, nothing pulled under")) if depth >= d)
+    return ["  Undertow - the Mariana Trench pulls under whatever is held back:",
+            f"    calls a worker couldn't take (sent on to the next): {down}",
+            f"    secrets (passwords, keys, card numbers) refused by memory: {blocked}",
+            f"    bottles voted down and washed ashore on Atlantizz: {ashore}",
+            "    chats saved under the old incognito mode: excluded from training and your profile",
+            f"    depth  {_bar(pulled / 10, '▼', '·')}  {depth:,} m of {CHALLENGER_DEEP:,} m - {zone}"]
+
+
+REPORTS = {   # /name -> (heading, lines(memory, workers), footer)
+    "trench": ("⌄ The Mariana Trench - the source of the undertow. Nothing it takes comes back up into a reply.",
+               lambda memory, workers: trench_lines(None, memory, workers), ""),
+    "compass": ("🧭 The compass", lambda memory, workers: compass_lines(workers), ""),
+    "locker": ("⧗ Davy Jones' Locker", lambda memory, workers: locker_lines(workers),
+               "(The currents it drives are in /trident; the undertow it feeds is in /trench.)"),
+}
+
+
+def report(name, memory=None, workers=None):
+    """/trench, /compass, /locker - one part of the sea on its own."""
+    head, body, foot = REPORTS[name]
+    return "\n".join([f"  {head}", ""] + body(memory, workers) + ([f"", f"  {foot}"] if foot else []))
 
 
 def trident_text(flow=None, memory=None, power=None, workers=None, order=None):
     """Poseidon's Trident - the working class: the processing power, and how the work is distributed."""
     data = _load()
     power, workers, order = power or {}, workers or [], order or []
+    ram, loaded = power.get("ram"), power.get("loaded") or []
     lines = ["  Ψ Poseidon's Trident - his most powerful asset, his bread and butter. The working class: the",
              "    processing power that does the crew's work, and how that work is distributed. Its prongs are",
              "    currents (distribution), undertow (what is held back, pulled down by the Mariana Trench)",
              "    and the flow of information.", "",
-             "  Processing power:"]
-    ram = power.get("ram")
-    lines += [f"    CPU     {power.get('cpu', '?')}",
-              f"    memory  {f'{ram:.1f} GB free' if ram else 'unknown'}",
-              f"    GPU     {power.get('gpu', '?')}",
-              f"    local   context window {power.get('context', '?')} · "
-              f"{'lobes vote in parallel' if power.get('parallel', True) else 'lobes vote one after the other'}"]
-    loaded = power.get("loaded") or []
-    lines.append("    loaded  " + (", ".join(loaded) if loaded else "no local model loaded right now"))
-    lines += [""] + locker_lines(workers)
+             "  Processing power:",
+             f"    CPU     {power.get('cpu', '?')}",
+             f"    memory  {f'{ram:.1f} GB free' if ram else 'unknown'}",
+             f"    GPU     {power.get('gpu', '?')}",
+             f"    local   context window {power.get('context', '?')} · "
+             f"{'lobes vote in parallel' if power.get('parallel', True) else 'lobes vote one after the other'}",
+             "    loaded  " + (", ".join(loaded) if loaded else "no local model loaded right now")]
     lines += headroom_lines(power, flow)
-    lines += [""] + compass_lines(workers)
-    lines += [""] + pocket_lines()[0]
+    lines += [""] + locker_lines(workers) + [""] + compass_lines(workers) + [""] + pocket_lines()
     lines += ["", "  Currents - how the work is distributed:"]
-    done = {w["name"]: max(0, w["calls"] - w.get("unavailable", 0)) for w in workers}
-    total = sum(done.values())
+    total = sum(_answered(w) for w in workers)
     for w in workers:
-        n = done[w["name"]]
-        share = f"{n / total:.0%}" if total else "0%"
+        n = _answered(w)
         rate = f" · {w['chars'] / w['seconds']:.0f} chars/s" if w["seconds"] > 0.5 and w["chars"] else ""
         missed = f" · couldn't take {w['unavailable']}" if w.get("unavailable") else ""
-        lines.append(f"    {w['name']:<32} {n:>4} calls answered ({share}) · {w['chars']:,} chars produced{rate}{missed}")
+        lines.append(f"    {w['name']:<32} {n:>4} calls answered ({n / total if total else 0:.0%}) · "
+                     f"{w['chars']:,} chars produced{rate}{missed}")
     if not total:
         lines.append("    no calls yet this session")
-    carried = [(a, data["shillings"].get(a, {}).get("work", 0)) for a in order]
-    busy = [f"{shilling(a, order)} {a} {n}" for a, n in sorted(carried, key=lambda kv: -kv[1]) if n][:6]
-    lines.append("    work carried by the crew: " + (" · ".join(busy) if busy else "none yet"))
+    carried = sorted(((a, data["shillings"].get(a, {}).get("work", 0)) for a in order), key=lambda kv: -kv[1])
+    busy = [f"{shilling(a, order)} {a} {n}" for a, n in carried if n][:6]
+    lines.append("    work carried by the crew: " + (" · ".join(busy) or "none yet"))
     lines += [""] + trench_lines(data, memory, workers)
     lines += ["", "  Flow of information - the data that reached the last reply:"]
     if flow:
         agent, parts = flow
         total_chars = sum(n for _l, n in parts) or 1
         lines.append(f"    to {agent}: {total_chars:,} characters in all")
-        for label, n in sorted(parts, key=lambda kv: -kv[1]):
-            bar = "█" * max(1, round(24 * n / total_chars))
-            lines.append(f"    {label:<28} {n:>7,}  {bar}")
+        lines += [f"    {label:<28} {n:>7,}  {'█' * max(1, round(24 * n / total_chars))}"
+                  for label, n in sorted(parts, key=lambda kv: -kv[1])]
     else:
         lines.append("    nothing yet - send a message, then look again")
-    lines += ["", "  (The marlin - the people: your goals and the budget - is /budget.)"]
-    return "\n".join(lines)
-
-
+    return "\n".join(lines + ["", "  (The marlin - the people: your goals and the budget - is /budget.)"])

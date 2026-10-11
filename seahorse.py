@@ -2273,9 +2273,8 @@ def handle_command(session, line):
         crew_command(session, arg)
     elif cmd == "council":
         council_command(session, arg)
-    elif cmd in ("treasury", "law", "laws", "wreck", "wrecks", "reef", "rcso", "budget", "dollar", "marlin", "goal",
-                 "goals", "trident", "trench", "undertow", "locker", "core", "davy", "pockets", "oil", "reserves", "quarters", "quarter", "seasons", "horsemen", "compass", "news"):
-        cmd = {"news": "compass", "quarter": "quarters", "seasons": "quarters", "horsemen": "quarters", "oil": "pockets", "reserves": "pockets", "core": "locker", "davy": "locker", "undertow": "trench", "wreck": "law", "wrecks": "laws", "reef": "laws", "rcso": "laws"}.get(cmd, cmd)
+    elif cmd in TREASURY_COMMANDS:
+        cmd = TREASURY_COMMANDS[cmd]
         treasury_command(session, cmd, arg)
     elif cmd == "units":
         import units as U
@@ -2420,6 +2419,13 @@ def load_extra_instructions():
         return ""
 
 
+TREASURY_COMMANDS = {c: c for c in ("treasury", "law", "laws", "budget", "trident", "trench", "locker", "compass",
+                                     "pockets", "quarters")}
+TREASURY_COMMANDS.update(wreck="law", wrecks="laws", reef="laws", rcso="laws", dollar="budget", marlin="budget",
+                         goal="budget", goals="budget", undertow="trench", core="locker", davy="locker", news="compass",
+                         oil="pockets", reserves="pockets", quarter="quarters", seasons="quarters", horsemen="quarters")
+
+
 def treasury_command(session, cmd, arg):
     """/treasury, /reef (/laws), /law <text> (/wreck), /law repeal <wreck>, /budget, /trident."""
     cfg = session.config
@@ -2433,13 +2439,10 @@ def treasury_command(session, cmd, arg):
         print(treasury.pockets_text(HISTORY_DIR, arg.strip()))
         return print()
     if cmd in ("trident", "trench", "locker", "compass"):
-        workers = []
-        for b in (session.claude, session.local):
-            workers.append({"name": b.label(), "calls": b.calls, "chars": b.chars, "seconds": b.seconds,
-                            "unavailable": b.unavailable})
-        if cmd in ("trench", "locker", "compass"):
-            print(treasury.trench_text(session.memory, workers) if cmd == "trench" else
-                  treasury.compass_text(workers) if cmd == "compass" else treasury.locker_text(workers))
+        workers = [{"name": b.label(), "calls": b.calls, "chars": b.chars, "seconds": b.seconds,
+                    "unavailable": b.unavailable} for b in (session.claude, session.local)]
+        if cmd != "trident":
+            print(treasury.report(cmd, session.memory, workers))
             return print()
         power = processing_power(session.local)
         try:
@@ -2449,10 +2452,9 @@ def treasury_command(session, cmd, arg):
         power["num_ctx"] = session.local.num_ctx
         power["context"] = f"{session.local.num_ctx:,} tokens" + ("" if session.local.fixed_ctx else " (auto-sized)")
         power["parallel"] = session.config.get("lobe_parallel", True) is not False
-        print(treasury.trident_text(getattr(session, "last_flow", None), session.memory, power, workers,
-                                    council.seating(session.agents.agents, session.config.get("council_seats"))))
+        print(treasury.trident_text(getattr(session, "last_flow", None), session.memory, power, workers, order))
         return print()
-    if cmd in ("budget", "dollar", "marlin", "goal", "goals"):
+    if cmd == "budget":
         if words[:1] == ["add"] and len(words) > 1:
             g = treasury.add_goal(arg.split(None, 1)[1])
             ui.note(f"added to the marlin: {g['text']}" if g else "the marlin holds up to ten goals")
