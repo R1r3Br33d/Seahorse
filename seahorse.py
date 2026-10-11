@@ -1285,6 +1285,8 @@ HELP = f"""{BOLD}Commands{RESET}
 
 {BOLD}Fine-tuning{RESET}
   /finetune                 progress and what's in use
+  /board [sub] [...]        the governance board: high council, seats, reef, purse, season on one page;
+                            /board seats · laws · law <bottle> · repeal <wreck> · pay · budget · quarters · crew ...
   /pay                      the payroll: every agent's purse in change, and the last payments
   /change                   the change: coins, how a reply's worth is counted, each agent's purse
   /finetune plan|extract|outline|build   the Ultimate model, valued in change: plan it, price every reply
@@ -2285,6 +2287,8 @@ def handle_command(session, line):
         build_command(session, arg)
     elif cmd == "finetune":
         finetune_command(session, arg)
+    elif cmd in ("board", "governance", "gov"):
+        board_command(session, arg)
     elif cmd == "change":
         import finetune as ft
         ui.section("the change")
@@ -2451,6 +2455,65 @@ TREASURY_COMMANDS = {c: c for c in ("treasury", "law", "laws", "budget", "triden
 TREASURY_COMMANDS.update(wreck="law", wrecks="laws", reef="laws", rcso="laws", dollar="budget", marlin="budget",
                          goal="budget", goals="budget", undertow="trench", core="locker", davy="locker", news="compass",
                          oil="pockets", reserves="pockets", payroll="pay", purse="pay", purses="pay", wages="pay", quarter="quarters", seasons="quarters", horsemen="quarters")
+
+
+BOARD_SUBS = {   # /board <sub> -> the command it runs
+    "seats": "council seats", "council": "council", "steps": "council steps", "approval": "council approval",
+    "laws": "laws", "reef": "laws", "law": "law", "bottle": "law", "repeal": "law repeal", "treasury": "treasury",
+    "pay": "pay", "purses": "pay", "budget": "budget", "goal": "budget add", "quarters": "quarters",
+    "horsemen": "quarters", "crew": "crew", "lobes": "lobes", "trident": "trident", "change": "change",
+}
+
+
+def board_text(session):
+    """The governance board on one page: who rules, the reef, the purse, the season, the council."""
+    cfg = session.config
+    seats = cfg.get("council_seats")
+    order = council.seating(session.agents.agents, seats)
+    threshold = int(cfg.get("law_threshold", treasury.DEFAULTS["law_threshold"]))
+    data = treasury._load()
+    _key, (season, _m, rider, horse, _c) = treasury.quarter_of()
+    riders = treasury._riders()
+    lines = ["  ⚖ The governance board - Bamba's crew, governing themselves under the RCSO.", "",
+             "  The high council (the four horsemen):"]
+    for q in ("Spring", "Summer", "Fall", "Winter"):
+        m = riders.get(q)
+        if m:
+            h = m["horseman"]
+            mark = "▸" if q == season else " "
+            lines.append(f"   {mark} {h['rider']:<9} {m['name']:<11} {q:<7} at {h['station']}")
+    lines += ["", "  The council seats:"] + council.seat_chart(seats)[:2]
+    ok, _broken = treasury.verify()
+    lines += ["", f"  The reef (RCSO) - a bottle needs {threshold} of {treasury.GALLEON} ayes · the stone is "
+                  f"{'sealed and intact' if ok else 'BROKEN - carving is stopped'}:"]
+    row = []
+    for chair, name in treasury.BOARDS.items():
+        n = len(treasury.laws(chair))
+        row.append(f"{name} {n}/{treasury.PER_BOARD}{' ◆' if n >= treasury.PER_BOARD else ''}")
+    lines += ["    " + " · ".join(row[i:i + 3]) for i in range(0, len(row), 3)]
+    purses = data.get("purses", {})
+    top = sorted(purses.items(), key=lambda kv: -kv[1]["cents"])[:3]
+    lines += ["", f"  The purse - paid out {change.dollars(sum(p['cents'] for p in purses.values()))}"
+                  + (" · richest: " + ", ".join(f"{a} {change.dollars(p['cents'])}" for a, p in top) if top else ""),
+              f"  The season - {season}, {rider} on {horse}"
+              + (f" ({riders[season]['name']})" if season in riders else ""),
+              f"  Goals (the marlin) - {len(data['goals'])} · bottles ashore on Atlantizz {len(data['failed'])}",
+              "", "  /board <" + " | ".join(dict.fromkeys(BOARD_SUBS)) + "> [...]"]
+    return "\n".join(lines)
+
+
+def board_command(session, arg):
+    """/board - the governance board; /board <sub> runs that part of government."""
+    words = arg.split(None, 1)
+    if not words:
+        print(board_text(session))
+        return print()
+    sub, rest = words[0].lower(), words[1] if len(words) > 1 else ""
+    target = BOARD_SUBS.get(sub)
+    if not target:
+        ui.note(f"no '{sub}' on the board - /board shows the sub-commands")
+        return print()
+    handle_command(session, f"/{target} {rest}".rstrip())
 
 
 def treasury_command(session, cmd, arg):

@@ -283,6 +283,22 @@ open. `/council` shows the last vote and the stats; `/council steps <1-4>`,
 `/council approval on|off`, `/council threshold <x>`, `/council revisions <n>`
 and `/council off` tune it, or use Settings → Council.
 
+### The governance board
+
+`/board` puts the crew's whole government on one page: the high council of
+the four horsemen (with this season's rider marked), the council seats in
+voting order, the reef (laws per cabinet board, black pearls ◆, and whether
+the stone's seal is intact), the purse (total paid and the richest agents),
+the season, and the goals. Every part of government is a sub-command of it:
+
+    /board seats · council · steps · approval      the council
+    /board laws · law <bottle> · repeal <wreck>     the reef (RCSO)
+    /board pay · budget · goal <text> · treasury   the purse and the marlin
+    /board quarters · horsemen · crew · lobes      the season and the crew
+    /board trident · change                        the working class and the coins
+
+Each runs the same command it names (`/board pay` is `/pay`). `/gov` works too.
+
 ### The treasury: shillings, galleons, shipwrecks, black pearls and the marlin
 
 The crew is paid in pirate coin and the treasures of the sea.
