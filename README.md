@@ -94,7 +94,8 @@ Seahorse: memory, notebooks, profile and character.
 | `settings.py` | Every setting described once, validated and applied (the app's Settings tab) |
 | `agency.py` | His inner voice (conscience, journal, self-model) and the Bureau of Magic |
 | `builder.py` | The character builder and persona presets |
-| `finetune.py` | Fine-tuning the local model on your conversations |
+| `finetune.py` | The Ultimate model: fine-tuning the local model on your conversations (plan, extract, outline, build) |
+| `change.py` | The change: Seahorse's value system in quarters, dimes, nickels and pennies; what a reply is worth, and how the Ultimate model is trained and judged |
 | `cortex.py` | How the agents perceive, keep notebooks, dream and develop themselves |
 | `portrait.py` | Seahorse's opinionated profile of you |
 | `skills.py` | Writing, math and units skills, plus the safe calculator |
@@ -482,28 +483,51 @@ Their notes show in their own colours before the answer (folded away in the
 app). `/brain` shows both brains; `/brain doc off` makes him answer directly,
 which is faster.
 
-## Fine-tuning
+## Fine-tuning: the Ultimate model, built on change
 
 Seahorse can train his local model on your own conversations, so the local
 brain itself learns his voice, each agent's way of answering and what you
-like, not just instructions in the prompt.
+like, not just instructions in the prompt. The Ultimate model is trained and
+judged in **change** (`change.py`), Seahorse's value system: every reply is
+worth between $0.00 and a whole value ($1.00), counted in quarters, dimes,
+nickels and pennies, kept to the hundredth and shown to the tenth.
 
-1. `/finetune prepare` builds the dataset from your saved chats. Each reply
-   becomes an example with its own agent's system prompt. Replies you corrected
-   next are dropped, replies you thanked count twice, anything with a password
-   or key is dropped, chats from the old incognito mode are never used, and 10% of chats are held
-   out for testing. Aim for 50+ examples.
-2. `/finetune distill` (optional, uses your Claude key) has Claude answer the
-   questions from your chats as each agent, so the local model learns from
-   Claude's answers in Seahorse's voice.
-3. `/finetune train` trains a LoRA adapter in the background: with MLX on a Mac
-   with Apple Silicon (`pip install mlx-lm`) or PEFT/TRL on an NVIDIA GPU
+What a reply is worth depends on how much you had to change it:
+
+| What happened next | Change |
+|---|---|
+| it answered (every reply starts here) | $0.50, two quarters |
+| you thanked or praised it | +$0.50: a whole value |
+| you built on it | +$0.10, a dime |
+| you let it stand (the chat ended there) | +$0.05, a nickel |
+| you scrapped the idea | -$0.10, a dime (the idea goes to the oil) |
+| you corrected it | -$0.25, a quarter |
+| you had to ask again | -$0.50, the whole answer redone |
+
+The four steps:
+
+1. `/finetune plan` sets out what will be built: how many chats and replies
+   you have, the base model, and whether this machine can train.
+2. `/finetune extract` builds the dataset from your saved chats and prices
+   every reply. Worth $0.75 or more trains twice, $0.30 or more once, and
+   under $0.30 is left out. Each example carries its own agent's system
+   prompt; anything with a password or key is dropped, chats from the old
+   incognito mode are never used, and 10% of chats are held out for testing.
+   Aim for 50+ examples. (`prepare` still works.)
+3. `/finetune outline` reads the dataset in change: how many replies at each
+   worth, the average, how many train twice, once or not at all, and each
+   agent's purse (the average worth of their replies). `/change` shows it too.
+4. `/finetune build` trains a LoRA adapter in the background: with MLX on a
+   Mac with Apple Silicon (`pip install mlx-lm`) or PEFT/TRL on an NVIDIA GPU
    (`pip install torch transformers peft trl datasets accelerate bitsandbytes`).
-   The result is imported into Ollama as `seahorse-tuned`.
-4. `/finetune eval` compares tuned and untuned answers on the held-out chats,
-   judged blind (by Claude if you have a key).
-5. `/finetune use` switches Seahorse onto the tuned model; `/finetune revert`
-   switches back. `/finetune` shows progress at any time.
+   The result is imported into Ollama as `seahorse-tuned`. (`train` still works.)
+
+Then `/finetune eval` has a blind judge (Claude if you have a key) price the
+tuned and untuned answers to the held-out chats in change. Within a nickel is
+a tie, and the report gives each model's average worth. `/finetune use`
+switches Seahorse onto the tuned model and `/finetune revert` switches back.
+`/finetune distill` (optional, uses your Claude key) has Claude answer the
+questions from your chats as each agent, to teach the local model.
 
 The agents fine-tune too, without any training run: every time you pick an
 agent yourself (`@doc ...`), routing learns from it. Once it has 20 examples

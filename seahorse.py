@@ -1275,6 +1275,9 @@ HELP = f"""{BOLD}Commands{RESET}
 
 {BOLD}Fine-tuning{RESET}
   /finetune                 progress and what's in use
+  /change                   the change: coins, how a reply's worth is counted, each agent's purse
+  /finetune plan|extract|outline|build   the Ultimate model, valued in change: plan it, price every reply
+                            ($0.00-$1.00), read the dataset's worth, train it
   /finetune prepare         build training data from your chats (corrected replies dropped, praised ones doubled)
   /finetune distill         (optional) Claude answers as each agent, to teach the local model
   /finetune train           train a LoRA on the local model (Apple Silicon or NVIDIA), in the background
@@ -2134,7 +2137,11 @@ def finetune_command(session, arg):
     import finetune as ft
     parts = arg.split()
     sub = parts[0].lower() if parts else "status"
-    if sub in ("use", "revert"):
+    sub = {"extract": "prepare", "build": "train"}.get(sub, sub)   # the Ultimate model's steps
+    if sub in ("plan", "outline"):
+        ui.section("the Ultimate model")
+        print("  " + (ft.plan() if sub == "plan" else ft.outline_text()).replace("\n", "\n  "))
+    elif sub in ("use", "revert"):
         try:
             ui.note(ft.use(sub == "use"))
         except SystemExit as e:
@@ -2157,7 +2164,8 @@ def finetune_command(session, arg):
         elif sub == "prepare":
             summary = ft.prepare(quiet=True)
             ui.note(f"dataset ready: {summary['train']} training and {summary['valid']} held-out examples "
-                    f"from {summary['chats']} chats")
+                    f"from {summary['chats']} chats · average reply worth "
+                    f"{ft.change.dollars(summary.get('average_worth', 0))} - /finetune outline")
             if not summary["enough"]:
                 ui.note(f"aim for {ft.MIN_EXAMPLES}+ training examples before training - keep chatting")
         else:
@@ -2171,7 +2179,8 @@ def finetune_command(session, arg):
     else:
         ui.section("fine-tuning")
         print("  " + ft.status_text().replace("\n", "\n  "))
-        ui.note("/finetune prepare · distill [--max N] · train · eval · use · revert")
+        ui.note("the Ultimate model: /finetune plan · extract · outline · build   then eval · use · revert "
+                "(also distill [--max N])")
     print()
 
 
@@ -2265,6 +2274,13 @@ def handle_command(session, line):
         build_command(session, arg)
     elif cmd == "finetune":
         finetune_command(session, arg)
+    elif cmd == "change":
+        import finetune as ft
+        ui.section("the change")
+        print("  whole value $1.00 · quarter $0.25 · dime $0.10 · nickel $0.05 · penny $0.01")
+        print("  A reply starts at two quarters; praise makes it a whole value, building on it earns a dime, letting it stand a")
+        print("  nickel; scrapping it costs a dime, a correction a quarter, asking again the whole half.\n")
+        print(ft.outline_text() if ft.WORTH.exists() else "  Nothing priced yet - /finetune extract prices every reply.")
     elif cmd == "brain":
         brain_command(session, arg)
     elif cmd == "lobes":

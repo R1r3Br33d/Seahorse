@@ -8,7 +8,13 @@ so the local brain itself picks up the Seahorse's voice, how each agent
 answers, and how you like things done - not just through instructions in the
 prompt.
 
-    python3 finetune.py prepare            build the dataset from your chats
+THE ULTIMATE MODEL - four steps, valued in change (see change.py):
+    python3 finetune.py plan               what will be built: your chats, the hardware, the base model
+    python3 finetune.py extract            build the dataset; every reply priced in change, $0.00 to $1.00
+    python3 finetune.py outline            the dataset in change: worth bands, each agent's purse
+    python3 finetune.py build              train it (the same as train)
+
+    python3 finetune.py prepare            build the dataset from your chats (the same as extract)
     python3 finetune.py distill [--max N]  (optional) have Claude write model answers to learn from
     python3 finetune.py train              train the adapter (runs for a while)
     python3 finetune.py eval               compare tuned vs untuned on held-out chats
@@ -24,8 +30,9 @@ THE DATASET
     skills) and up to the six messages before it, so the model learns each
     agent's voice separately. Filters:
       - chats saved while the old incognito mode was on are never used
-      - replies you corrected next ("no, actually...", "that's wrong") are dropped
-      - replies you thanked or praised count twice
+      - every reply is priced in change by how much you had to change it (change.py):
+        worth $0.75+ trains twice, $0.30+ once, under $0.30 is left out - so replies you
+        corrected or had to ask again are dropped, and ones you praised count double
       - anything containing a password, key or card number is dropped
       - calculator round-trips are folded into the final answer
       - exact duplicates are removed
@@ -96,10 +103,16 @@ BASE_MODELS = {
     "gemma2:9b": ("mlx-community/gemma-2-9b-it-4bit", "google/gemma-2-9b-it"),
 }
 
-_CORRECTION = re.compile(r"^\s*(no[,.!]|nope|wrong|that'?s (?:wrong|not right|incorrect)|not what i (?:meant|asked)|"
-                         r"you (?:misunderstood|got it wrong|forgot)|actually,? (?:no|i said))", re.I)
-_PRAISE = re.compile(r"\b(thanks|thank you|thx|perfect|great|awesome|exactly|love it|nailed it|that works|"
-                     r"that'?s right|spot on)\b", re.I)
+import change  # noqa: E402 - the value system the Ultimate model is trained and judged in
+WORTH = DATA / "worth.jsonl"   # one line per reply: agent, chat, worth (for the outline)
+
+
+def _scrap():
+    try:
+        from treasury import SCRAP
+        return SCRAP
+    except Exception:  # noqa: BLE001 - scrapping is a nicety in the pricing
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -181,15 +194,21 @@ def chat_examples(path, persona, agents, skills, extra, contains_secret):
     if data.get("incognito"):
         return [], {"incognito": 1}
     msgs = clean_messages(data.get("messages", []), data.get("agents", {}))
-    stats = {"replies": 0, "corrected": 0, "secret": 0, "praised": 0}
-    examples = []
+    stats = {"replies": 0, "corrected": 0, "secret": 0, "praised": 0, "cents": 0}
+    examples, scrap = [], _scrap()
     for i, m in enumerate(msgs):
         if m["role"] != "assistant" or not m["content"].strip() or i == 0:
             continue
         stats["replies"] += 1
         nxt = msgs[i + 1]["content"] if i + 1 < len(msgs) and msgs[i + 1]["role"] == "user" else ""
-        if nxt and _CORRECTION.search(nxt):
-            stats["corrected"] += 1
+        asked = msgs[i - 1]["content"] if msgs[i - 1]["role"] == "user" else ""
+        cents, _ledger = change.worth(m["content"], nxt, asked, ended=i == len(msgs) - 1, scrap=scrap)
+        stats["cents"] += cents
+        stats.setdefault("priced", []).append({"agent": (m.get("agent") or "hippocampus").replace("team:", "") or
+                                               "hippocampus", "chat": path.stem, "worth": cents})
+        weight = change.copies(cents)
+        if not weight:
+            stats["corrected"] += 1     # worth too little to learn from
             continue
         context = msgs[max(0, i - CONTEXT_MESSAGES):i]
         while context and context[0]["role"] != "user":
@@ -205,8 +224,7 @@ def chat_examples(path, persona, agents, skills, extra, contains_secret):
         agent = agent if not agent.startswith("team:") else "hippocampus"
         system = agent_system(persona, agents, skills, extra, agent)
         ex = {"messages": [{"role": "system", "content": system}] + convo,
-              "meta": {"agent": agent, "chat": path.stem, "source": "chat"}}
-        weight = 2 if nxt and _PRAISE.search(nxt) else 1
+              "meta": {"agent": agent, "chat": path.stem, "source": "chat", "worth": cents}}
         stats["praised"] += weight - 1
         examples += [ex] * weight
     return examples, stats
@@ -228,13 +246,14 @@ def prepare(quiet=False):
     persona, agents, skills, extra = load_seahorse()
     chats = sorted(CHATS.glob("chat-*.json"))
     rows, totals = [], {"chats": 0, "incognito": 0, "replies": 0, "corrected": 0, "secret": 0, "praised": 0}
-    seen = {}
+    seen, priced = {}, []
     for path in chats:
         try:
             ex, st = chat_examples(path, persona, agents, skills, extra, contains_secret)
         except (OSError, json.JSONDecodeError):
             continue
         totals["chats"] += 1
+        priced += st.pop("priced", [])
         for k, v in st.items():
             totals[k] = totals.get(k, 0) + v
         for e in ex:
@@ -261,11 +280,16 @@ def prepare(quiet=False):
     random.Random(42).shuffle(train)
     write_jsonl(DATA / "train.jsonl", train)
     write_jsonl(DATA / "valid.jsonl", valid)
+    with open(WORTH, "w", encoding="utf-8") as f:   # every priced reply, kept or left out
+        for p in priced:
+            f.write(json.dumps(p) + "\n")
     by_agent = {}
     for r in train:
         a = r.get("meta", {}).get("agent", "?")
         by_agent[a] = by_agent.get(a, 0) + 1
+    priced = totals.get("replies", 0) - totals.get("incognito", 0)
     summary = dict(totals, train=len(train), valid=len(valid), distilled=len(distilled), by_agent=by_agent,
+                   average_worth=totals.get("cents", 0) // max(1, priced),
                    enough=len(train) >= MIN_EXAMPLES, data=str(DATA))
     (DATA / "summary.json").write_text(json.dumps(summary, indent=2))
     set_status(stage="prepared", dataset=summary)
@@ -541,7 +565,7 @@ def evaluate(n=20):
     key = os.environ.get("ANTHROPIC_API_KEY")
     judge = sh.ClaudeBackend(os.environ.get("CLAUDE_MODEL", "claude-sonnet-5-5"), key, 512) if key else None
     set_status(stage="evaluating", done=0, total=len(rows), log=[])
-    wins = {"tuned": 0, "base": 0, "tie": 0}
+    wins, purse = {"tuned": 0, "base": 0, "tie": 0}, {"tuned": [], "base": []}
     rng = random.Random(1)
     for i, r in enumerate(rows):
         system, convo, reference = r["messages"][0]["content"], r["messages"][1:-1], r["messages"][-1]["content"]
@@ -552,29 +576,33 @@ def evaluate(n=20):
             raise SystemExit(f"Couldn't run the models: {e}")
         flip = rng.random() < 0.5
         first, second = (b, a) if flip else (a, b)
-        question = (f"Conversation so far:\n{json.dumps(convo)[-3000:]}\n\nThe persona and instructions:\n{system[:2500]}\n\n"
-                    f"The user's actual preferred style is shown by this past reply:\n{reference[:1500]}\n\n"
-                    f"Reply 1:\n{first[:2000]}\n\nReply 2:\n{second[:2000]}\n\n"
-                    "Which reply is better: more helpful and accurate, and more in character? Answer only 1, 2 or tie.")
+        question = change.judge_prompt(json.dumps(convo), system, reference, first, second)
         try:
             verdict = "".join(judge.stream("You judge replies fairly.", [{"role": "user", "content": question}])) \
-                if judge else ollama_chat(base, "You judge replies fairly. Answer only 1, 2 or tie.",
+                if judge else ollama_chat(base, "You judge replies fairly. Answer only in the form 1: 0.xx 2: 0.xx",
                                           [{"role": "user", "content": question}], base_url)
         except Exception as e:  # noqa: BLE001
             raise SystemExit(f"Judge failed: {e}")
-        v = verdict.strip().lower()
-        pick = "tie" if "tie" in v else ("1" if v.startswith("1") else "2" if v.startswith("2") else "tie")
-        if pick == "tie":
-            wins["tie"] += 1
+        prices = change.parse_prices(verdict)
+        if prices is None:
+            wins["tie"] += 1            # an unpriced verdict counts as a tie
         else:
-            tuned_won = (pick == "1") != flip
-            wins["tuned" if tuned_won else "base"] += 1
+            tuned_c, base_c = (prices[1], prices[0]) if flip else prices
+            purse["tuned"].append(tuned_c)
+            purse["base"].append(base_c)
+            if abs(tuned_c - base_c) < 5:          # within a nickel is a tie
+                wins["tie"] += 1
+            else:
+                wins["tuned" if tuned_c > base_c else "base"] += 1
         set_status(done=i + 1)
     total = sum(wins.values())
+    avg = {k: sum(v) // len(v) if v else 0 for k, v in purse.items()}
     report = dict(wins, total=total, tuned_win_rate=round(wins["tuned"] / max(1, total - wins["tie"]), 2),
+                  tuned_worth=avg["tuned"], base_worth=avg["base"],
                   judge="Claude" if judge else f"{base} (less reliable)", at=datetime.now().isoformat(timespec="seconds"))
     set_status(stage="evaluated", eval=report)
-    log(f"tuned won {wins['tuned']}, untuned won {wins['base']}, ties {wins['tie']} (judge: {report['judge']})")
+    log(f"tuned won {wins['tuned']}, untuned won {wins['base']}, ties {wins['tie']} (judge: {report['judge']}); "
+        f"average worth: tuned {change.dollars(avg['tuned'])}, untuned {change.dollars(avg['base'])}")
     return report
 
 
@@ -610,8 +638,11 @@ def status_text():
     ds = st.get("dataset")
     if ds:
         lines.append(f"dataset: {ds['train']} training + {ds['valid']} held-out examples from {ds['chats']} chats "
-                     f"({ds['corrected']} corrected replies dropped, {ds['secret']} with secrets dropped, "
-                     f"{ds['praised']} praised counted twice, {ds['distilled']} from Claude)")
+                     f"({ds['corrected']} worth under {change.dollars(change.ONCE)} left out, {ds['secret']} with secrets "
+                     f"dropped, {ds['praised']} worth {change.dollars(change.TWICE)}+ trained twice, "
+                     f"{ds['distilled']} from Claude)")
+        if "average_worth" in ds:
+            lines.append(f"average reply worth: {change.coins(ds['average_worth'])}")
         if ds.get("by_agent"):
             lines.append("by agent: " + ", ".join(f"{a} {c}" for a, c in sorted(ds["by_agent"].items(), key=lambda x: -x[1])))
         if not ds.get("enough"):
@@ -625,7 +656,9 @@ def status_text():
     if st.get("eval"):
         e = st["eval"]
         lines.append(f"last eval: tuned won {e['tuned']}, untuned {e['base']}, ties {e['tie']} "
-                     f"(win rate {int(e['tuned_win_rate'] * 100)}%, judge {e['judge']})")
+                     f"(win rate {int(e['tuned_win_rate'] * 100)}%, judge {e['judge']})"
+                     + (f" · worth: tuned {change.dollars(e['tuned_worth'])}, untuned {change.dollars(e['base_worth'])}"
+                        if "tuned_worth" in e else ""))
     if st.get("error"):
         lines.append(f"problem: {st['error']}")
     try:
@@ -640,13 +673,53 @@ def status_text():
     return "\n".join(lines)
 
 
+def plan():
+    """Step 1 of the Ultimate model: what will be built, from what, on what."""
+    persona, *_ = load_seahorse()
+    chats = sorted(CHATS.glob("chat-*.json"))
+    replies = 0
+    for p in chats:
+        try:
+            replies += sum(1 for m in json.loads(p.read_text()).get("messages", []) if m.get("role") == "assistant")
+        except (OSError, json.JSONDecodeError):
+            continue
+    trainer, why = detect_trainer()
+    base = persona.state.get("base_model", "llama3.1:8b")
+    st = read_status()
+    ds = st.get("dataset") or {}
+    lines = ["The Ultimate model - a plan in four steps, valued in change:", "",
+             f"  1. plan     you are here. {len(chats)} chats hold {replies} replies to learn from.",
+             f"  2. extract  price every reply from {change.dollars(0)} to a whole value ({change.dollars(100)}) by how "
+             f"much you changed it; {change.dollars(change.TWICE)}+ trains twice, under {change.dollars(change.ONCE)} is "
+             "left out." + (f" Last extract: {ds.get('train', 0)} examples, average {change.dollars(ds['average_worth'])}."
+                            if "average_worth" in ds else " Not run yet."),
+             "  3. outline  read the dataset in change: worth bands and each agent's purse.",
+             f"  4. build    train a LoRA on {base} - "
+             + (f"ready ({'Apple Silicon, MLX' if trainer == 'mlx' else 'NVIDIA GPU, CUDA'})." if trainer else f"not on this machine: {why}"),
+             "", "  then: eval prices tuned and untuned answers in change; use switches Seahorse onto the winner.",
+             f"  aim for {MIN_EXAMPLES}+ training examples" + (" - you have enough." if replies >= MIN_EXAMPLES else
+                                                            f" - about {MIN_EXAMPLES - replies} more replies to go.")]
+    return "\n".join(lines)
+
+
+def outline_text():
+    """Step 3: the extracted dataset, counted in change."""
+    if not WORTH.exists():
+        return "Nothing extracted yet - run extract first."
+    rows = [json.loads(line) for line in WORTH.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return change.outline(rows)
+
+
 def main():
     ap = argparse.ArgumentParser(description="Fine-tune Seahorse's local model on your conversations")
     sub = ap.add_subparsers(dest="cmd")
     sub.add_parser("prepare")
+    sub.add_parser("extract")
+    sub.add_parser("plan")
+    sub.add_parser("outline")
     d = sub.add_parser("distill")
     d.add_argument("--max", type=int, default=200)
-    t = sub.add_parser("train")
+    t = sub.add_parser("train", aliases=["build"])
     t.add_argument("--base")
     t.add_argument("--epochs", type=float, default=2.0)
     t.add_argument("--rank", type=int, default=16)
@@ -658,11 +731,15 @@ def main():
     sub.add_parser("revert")
     sub.add_parser("status")
     args = ap.parse_args()
-    if args.cmd == "prepare":
+    if args.cmd in ("prepare", "extract"):
         prepare()
+    elif args.cmd == "plan":
+        print(plan())
+    elif args.cmd == "outline":
+        print(outline_text())
     elif args.cmd == "distill":
         distill(args.max)
-    elif args.cmd == "train":
+    elif args.cmd in ("train", "build"):
         train(args.base, args.epochs, args.rank, args.lr, args.hf_model)
     elif args.cmd == "eval":
         print(json.dumps(evaluate(args.n), indent=2))
