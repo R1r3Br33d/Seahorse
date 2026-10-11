@@ -351,28 +351,30 @@ class Session:
         if self.system_override:
             return self.system_override
         latest = query or " ".join(self.user_texts()[-1:])
-        parts = [self.persona.system_prompt(self.extra, agent.traits, self.crew_lines(agent, latest))
-                 if agent.persona else CORE_IDENTITY]
+        flow = [("character & personality", self.persona.system_prompt(self.extra, agent.traits,
+                                                                       self.crew_lines(agent, latest))
+                 if agent.persona else CORE_IDENTITY)]
         if agent.persona and self.memory_on():
-            parts.append(self.memory.context(query or " ".join(self.user_texts()[-2:])))
+            flow.append(("memory", self.memory.context(query or " ".join(self.user_texts()[-2:]))))
         if agent.persona and self.cortex:
-            parts.append(self.cortex.context_for(agent.name))
+            flow.append(("notebooks", self.cortex.context_for(agent.name)))
         if agent.persona and self.profile:
-            parts.append(self.profile.context())
+            flow.append(("profile of you", self.profile.context()))
         if agent.persona and self.agency and self.agency.self_context():
-            parts.append(self.agency.self_context())
+            flow.append(("inner voice", self.agency.self_context()))
         for ep in self.pinned_context:
-            parts.append(f"Earlier conversation the user asked you to bring back ({ep['date']}, {ep['title']}):\n"
-                         f"{ep['summary']}")
+            flow.append(("revisited chats", f"Earlier conversation the user asked you to bring back ({ep['date']}, "
+                                            f"{ep['title']}):\n{ep['summary']}"))
         if agent.role_prompt():
-            parts.append(agent.role_prompt())
+            flow.append(("role", agent.role_prompt()))
         if agent.persona:
-            for block in (treasury.constitution_prompt(), treasury.dollar_prompt()):
-                if block:
-                    parts.append(block)
+            flow.append(("laws (the bill)", treasury.constitution_prompt()))
+            flow.append(("Poseidon's Trident (goals)", treasury.dollar_prompt()))
         if self.skills.prompt(active_skills):
-            parts.append(self.skills.prompt(active_skills))
-        return "\n\n".join(parts)
+            flow.append(("skills", self.skills.prompt(active_skills)))
+        flow = [(label, text) for label, text in flow if text]
+        self.last_flow = (agent.name, [(label, len(text)) for label, text in flow])   # the Trident's data flow
+        return "\n\n".join(text for _label, text in flow)
 
     def crew_lines(self, agent, query=""):
         """The crew member's character for this agent, or None to use the captain's."""
@@ -1253,6 +1255,7 @@ HELP = f"""{BOLD}Commands{RESET}
   /law <text>               propose a law: all ten pennies vote; a full dime of ayes mints it into the constitution
   /laws · /law repeal <n>   the constitution (the bill, up to ten laws) · repeal one
   /budget                   the dollar is the people: your goals, direction, future - and what's in the budget
+  /trident                  Poseidon's Trident: currents (goals), undertow (what's held back), flow of information
   /budget add <goal> · set <n> <cents> · drop <n>   split the dollar's 100¢ across your goals
   /council seats            the council table: votes run 01→05 along the top, then 06→10 back; 1+ breaks ties
   /council seat <1-10> <agent>   reseat an agent (swaps with whoever sat there) · /council reseat for the default
@@ -2208,7 +2211,7 @@ def handle_command(session, line):
         crew_command(session, arg)
     elif cmd == "council":
         council_command(session, arg)
-    elif cmd in ("treasury", "law", "laws", "budget", "dollar", "goal", "goals"):
+    elif cmd in ("treasury", "law", "laws", "budget", "dollar", "goal", "goals", "trident"):
         treasury_command(session, cmd, arg)
     elif cmd == "units":
         import units as U
@@ -2359,6 +2362,9 @@ def treasury_command(session, cmd, arg):
     order = council.seating(session.agents.agents, cfg.get("council_seats"))
     threshold = int(cfg.get("law_threshold", treasury.DEFAULTS["law_threshold"]))
     words = arg.split()
+    if cmd == "trident":
+        print(treasury.trident_text(getattr(session, "last_flow", None), session.memory))
+        return print()
     if cmd in ("budget", "dollar", "goal", "goals"):
         if words[:1] == ["add"] and len(words) > 1:
             g = treasury.add_goal(arg.split(None, 1)[1])

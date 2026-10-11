@@ -13,8 +13,15 @@ treasury.py - the ship's treasury: pennies, dimes and the dollar.
               mints it.
     THE BILL  The CONSTITUTION: the laws, up to ten. Every agent follows them.
               A full bill takes no more until a law is repealed (/law repeal <n>).
-    DOLLAR    The PEOPLE: you. Your goals, your direction, your future. It's what
-              every coin is for.
+    DOLLAR    POSEIDON'S TRIDENT: the oceanic army, the Atlantean control of
+              currents, undertow and the flow of information (data). It is the
+              people - you, your goals, direction and future - and every coin
+              serves it. Its three prongs:
+                currents   where the crew's effort flows: your goals and the budget
+                undertow   what is pulled under and kept out of circulation:
+                           secrets never stored, laws voted down, chats excluded
+                flow       the flow of information: how much data, from which
+                           source, reaches each reply (/trident)
     BUDGET    How the dollar's 100 cents are split across your goals (/budget).
               Every penny of work the crew carries is counted against the goal
               it served, so the Treasurer can show what was spent where.
@@ -171,9 +178,10 @@ def dollar_prompt():
     gs = goals()
     if not gs:
         return ""
-    lines = ["The dollar - the person you serve: their goals, direction and future, with the share of the crew's "
-             "effort they've budgeted to each. Keep them in mind; where it genuinely helps, connect your answer to "
-             "them. Never push the goals on the person or bring them up when they don't fit."]
+    lines = ["Poseidon's Trident (the dollar) - the person you serve: their goals, direction and future, with the "
+             "share of the crew's effort they've budgeted to each. These are the currents the crew moves on. Keep "
+             "them in mind; where it genuinely helps, connect your answer to them. Never push the goals on the "
+             "person or bring them up when they don't fit."]
     lines += [f"- {g['text']} ({g['cents']}¢)" for g in gs]
     return "\n".join(lines)
 
@@ -303,7 +311,7 @@ def budget_text():
     data = _load()
     gs = data["goals"]
     total = sum(g.get("spent", 0) for g in gs) + data["general"]
-    lines = ["  The dollar (the people: your goals, direction, future) and the budget:"]
+    lines = ["  Currents - Poseidon's Trident (the dollar: your goals, direction, future) and the budget:"]
     if not gs:
         lines.append("    nothing budgeted yet - add a goal with /budget add <goal>; the dollar's 100¢ split across them")
     for i, g in enumerate(gs, 1):
@@ -314,4 +322,32 @@ def budget_text():
                      f" · spent {spent} {'penny' if spent == 1 else 'pennies'} ({share} of the work){' · ' + who if who else ''}")
     lines.append(f"    general upkeep (work for no listed goal): {data['general']} "
                  f"{'penny' if data['general'] == 1 else 'pennies'}")
+    return "\n".join(lines)
+
+
+def trident_text(flow=None, memory=None):
+    """Poseidon's Trident: the three prongs - currents, undertow and the flow of information."""
+    data = _load()
+    lines = ["  Ψ Poseidon's Trident - the oceanic army: the Atlantean control of currents, undertow and the flow of",
+             "    information. It is the dollar: the people, and every coin of the treasury serves it.", "",
+             budget_text(), "", "  Undertow - what is pulled under and kept out of circulation:"]
+    blocked = 0
+    if memory is not None:
+        try:
+            blocked = memory.db.execute("SELECT COUNT(*) FROM memory_log WHERE action='blocked'").fetchone()[0]
+        except Exception:  # noqa: BLE001 - the count is a nicety
+            blocked = 0
+    lines += [f"    secrets (passwords, keys, card numbers) refused by memory: {blocked}",
+              f"    laws voted down and kept off the bill: {len(data['failed'])}",
+              "    chats saved under the old incognito mode: excluded from training and your profile",
+              "", "  Flow of information - the data that reached the last reply:"]
+    if flow:
+        agent, parts = flow
+        total = sum(n for _l, n in parts) or 1
+        lines.append(f"    to {agent}: {total:,} characters in all")
+        for label, n in sorted(parts, key=lambda kv: -kv[1]):
+            bar = "█" * max(1, round(24 * n / total))
+            lines.append(f"    {label:<28} {n:>7,}  {bar}")
+    else:
+        lines.append("    nothing yet - send a message, then look again")
     return "\n".join(lines)

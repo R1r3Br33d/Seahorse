@@ -283,11 +283,19 @@ and `/council off` tune it, or use Settings → Council.
   that would conflict with honesty, your wellbeing or safety is voted down.
 - **The bill is the constitution.** Up to ten laws, followed by every agent.
   They never outrank the core values. `/laws`, `/law repeal <n>`.
-- **The dollar is the people.** You: your goals, direction and future. The
-  budget splits its 100¢ across your goals (`/budget add <goal>`,
-  `/budget set <n> <cents>`, `/budget drop <n>`), every agent keeps them in mind,
-  and each penny of work is counted against the goal it served, so `/budget`
-  shows what's in the budget and where the crew's effort actually went.
+- **The dollar is Poseidon's Trident**, the oceanic army: the Atlantean
+  control of currents, undertow and the flow of information. It is the people,
+  meaning you, your goals, direction and future, and every coin serves it.
+  `/trident` shows its three prongs:
+  - **Currents**: where the crew's effort flows. The budget splits the
+    dollar's 100¢ across your goals (`/budget add <goal>`,
+    `/budget set <n> <cents>`, `/budget drop <n>`); each penny of work is counted
+    against the goal it served, so `/budget` shows what's in the budget and
+    where the effort actually went.
+  - **Undertow**: what is pulled under and kept out of circulation: secrets
+    memory refused to store, laws voted down, chats from the old incognito mode.
+  - **Flow of information**: exactly how much data, from which source (memory,
+    notebooks, profile, laws, goals, role, skills), reached the last reply.
 
 `/treasury` shows the whole ledger. Settings → Treasury sets how many ayes a law
 needs.
