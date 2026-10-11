@@ -117,7 +117,13 @@ def _tick(data, what, n=1):
 
 def quarter_prompt():
     key, (season, _m, rider, horse, charge) = quarter_of()
-    return f"Season: it is {season}, the quarter of {rider} ({horse}) - {charge}."
+    try:
+        import crew
+        who = crew.horsemen().get(season)
+        who = f", ridden by {who[1]['name']}" if who else ""
+    except Exception:  # noqa: BLE001
+        who = ""
+    return f"Season: it is {season}, the quarter of {rider} ({horse}){who} - {charge}."
 
 
 def quarters_text(chats_dir=None, n=4):
@@ -140,7 +146,13 @@ def quarters_text(chats_dir=None, n=4):
     for p in (chats.glob("chat-*.json") if chats.is_dir() else []):
         add(p.stem.replace("chat-", "")[:10], "chats")
     now, (season, _m, rider, horse, charge) = quarter_of()
-    lines = [f"  ♞ The quarters - four seasons, four horsemen. Now: {season}, ridden by {rider} on {horse}:",
+    try:
+        import crew
+        riders = {q: f"{m['name']} at {m['horseman'].get('station', '?')}" for q, (a, m) in crew.horsemen().items()}
+    except Exception:  # noqa: BLE001 - the crew is a nicety here
+        riders = {}
+    lines = [f"  ♞ The quarters - four seasons, four horsemen, the four high-ranking members of Bamba's council.",
+             f"    Now: {season}, ridden by {rider} on {horse}" + (f" - {riders[season]}" if season in riders else "") + ":",
              f"    {charge}.", ""]
     order = [s[0] for s in SEASONS]
     year, cur = int(now.split()[0]), order.index(season)
@@ -154,7 +166,7 @@ def quarters_text(chats_dir=None, n=4):
                  f"wrecks raised {b.get('raised', 0)} · bottles ashore {b.get('ashore', 0)} · oil {b.get('oil', 0)} · "
                  f"chats {b.get('chats', 0)}")
         mark = "▸" if i == 0 else " "
-        lines.append(f"  {mark} {key:<12} {s[2]:<9} {s[3]:<16} {stats}")
+        lines.append(f"  {mark} {key:<12} {s[2]:<9} {riders.get(s[0], ''):<26} {stats}")
     return "\n".join(lines)
 
 

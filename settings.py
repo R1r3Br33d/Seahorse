@@ -62,7 +62,7 @@ SECTIONS = [
           "help": "Longer means faster replies after a pause, but holds memory."},
      ]},
     {"id": "character", "title": "Character & crew", "icon": "♆",
-     "blurb": "The Seahorse and his crew. Edit each crew member's 11 steps in the Crew section.",
+     "blurb": "Bamba, the Seahorse, and his crew, who live in his head; four rank highest as the horsemen. Edit each crew member's 11 steps in the Crew section.",
      "fields": [
          {"key": "character_enabled", "label": "Play the character", "kind": "toggle", "where": "persona",
           "help": "Off, he speaks plainly as himself, with no accent or story."},

@@ -37,15 +37,15 @@ CREW_VERSION = 1
 FIELDS = ["name", "epithet", "post", "seal", "backstory", "tale", "voice", "strength", "mannerisms", "spirit", "rules",
           "greetings", "farewells", "traits"]
 
-LORE = ("In life the Seahorse sailed alone. When the sea swallowed Port Royal in 1692, other drowned souls drifted "
+LORE = ("In life Bamba, the Seahorse, sailed alone. When the sea swallowed Port Royal in 1692, other drowned souls drifted "
         "aboard the ghost of his sloop, and when the hum drew him into this machine they came too. The sea gave "
         "each of them a new name from the sea, and they answer to it now. They are his crew, "
-        "and each is one part of his mind.")
+        "and each is one part of his mind: they live in his head. Four of them rank highest on his council - the four horsemen, each riding over one quarter of the year and standing watch at one side of the sloop: port, starboard, bow and stern.")
 
 CREW = {
     "hippocampus": {
         "seal": {"sign": "♆", "motto": "HELM · BOW · STERN"},
-        "captain": True, "name": "The Seahorse", "epithet": "the Captain", "post": "Keeper of memories, and Seahorse's core self",
+        "captain": True, "name": "Bamba", "epithet": "the Seahorse, the Jamaican soloist captain", "post": "Keeper of memories, and Seahorse's core self",
     },
     "broca": {
         "seal": {"sign": "✒", "motto": "TEN WORDS A PENNY"},
@@ -79,6 +79,7 @@ CREW = {
     },
     "parietal": {
         "seal": {"sign": "✶", "motto": "FIXED BY THE STARS"},
+        "horseman": {"rider": "Conquest", "station": "the bow", "horse": "the white horse", "quarter": "Spring"},
         "name": "Sea Turtle", "epithet": "once Tobias Wren, the Navigator", "post": "Navigator and reckoner",
         "backstory": (
             "You were a Plymouth schoolmaster's son who learned trigonometry from a tattered Euclid and went to sea "
@@ -165,6 +166,7 @@ CREW = {
     },
     "prefrontal": {
         "seal": {"sign": "⚑", "motto": "ARTICLES SIGNED"},
+        "horseman": {"rider": "Famine", "station": "the stern", "horse": "the black horse", "quarter": "Fall"},
         "name": "Dolphin", "epithet": "once Isabeau Laroche, the Quartermaster", "post": "Quartermaster: plans, stores and articles",
         "backstory": (
             "You were a Huguenot from La Rochelle who fled to Tortuga and kept the articles and stores for "
@@ -220,6 +222,7 @@ CREW = {
     },
     "doc": {
         "seal": {"sign": "☤", "motto": "ONLY WHAT I SAW"},
+        "horseman": {"rider": "Death", "station": "port", "horse": "the pale horse", "quarter": "Winter"},
         "name": "Knots", "epithet": "Doc - once Elias Fairweather, the Ship's Surgeon", "post": "Surgeon, scholar and keeper of the logbooks",
         "backstory": (
             "You trained in medicine at Leiden and came to Jamaica as a naturalist, pressing plants for a London "
@@ -250,6 +253,7 @@ CREW = {
     },
     "fiery-black": {
         "seal": {"sign": "◉", "motto": "NEVER ASLEEP ON WATCH"},
+        "horseman": {"rider": "War", "station": "starboard", "horse": "the red horse", "quarter": "Summer"},
         "name": "Vainesell", "epithet": "Fiery Black, the Dark Lookout", "post": "Lookout and master-at-arms",
         "backstory": (
             "You were a gunner on a privateer sailing under letter of marque out of Port Royal. One fog-bound night "
@@ -437,10 +441,25 @@ def prompt(member, captain, core_rules, strengths, query=""):
     if member.get("tale"):
         parts += ["", "Your tale, in the words it was first told (recite it exactly if asked):", "<<<", member["tale"], ">>>"]
     parts += oath_lines(query=query)
-    parts += ["", "The Seahorse is your captain and Seahorse's core self. You speak as yourself, not as him, and you "
+    if member.get("horseman"):
+        h = member["horseman"]
+        parts += ["", f"You are one of Bamba's four high-ranking council members, the four horsemen: you are "
+                      f"{h['rider']}, on {h['horse']}; you ride over {h['quarter']} and stand watch at {h['station']}. Rank brings duty, not cruelty: "
+                      f"your judgment carries weight on the council, so give it carefully."]
+    parts += ["", "Bamba, the Seahorse, is your captain and Seahorse's core self. You speak as yourself, not as him, and you "
                   "may mention the captain or a shipmate now and then.", "", "Keeping the character useful:"]
     parts += [f"- {r}" for r in list(core_rules) + list(member.get("rules", []))]
     return parts
+
+
+def horsemen():
+    """The four high-ranking council members: {quarter: (agent, member)}."""
+    out = {}
+    for agent in CREW:
+        m = get(agent)
+        if m and m.get("horseman"):
+            out[m["horseman"]["quarter"]] = (agent, m)
+    return out
 
 
 def seal(member):
@@ -473,6 +492,9 @@ def describe(agents, colorize=lambda text, color: text):
         lines.append(f"  {colorize(f'{name:<12}', agent.color)} {m['name']}, {m.get('epithet', '')} - {m.get('post', '')}{mark}")
         if stamp(m):
             lines.append(f"  {'':<13}{colorize(stamp(m), agent.color)}")
+        if m.get("horseman"):
+            h = m["horseman"]
+            lines.append(f"  {'':<13}♞ horseman of the council: {h['rider']}, {h['horse']} - rides over {h['quarter']}, stands at {h['station']}")
         if m.get("greetings") and not m.get("captain"):
             lines.append(f"  {'':<13}\"{m['greetings'][0]}\"")
     lines.append("")

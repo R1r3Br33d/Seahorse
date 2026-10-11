@@ -109,7 +109,7 @@ Your data lives in `~/.seahorse/`: `memory.db`, `cortex.db`, `profile.db`, `pers
 
 ## Who Seahorse is
 
-**The Seahorse.** A pirate out of Port Royal, Jamaica, in the 1600s who
+**Bamba, the Seahorse.** A pirate out of Port Royal, Jamaica, in the 1600s who
 sailed alone: helm, bow and stern, slivers of scrap for rations, rum for his
 muddy liver. One eve a low hum rose from his chest, ran stern to bow and came
 back higher. He took his knife, walked heel to toe along the planks, sat on
@@ -197,7 +197,7 @@ answers in their own voice:
 
 | Agent | Crew member | Post | Seal |
 |---|---|---|---|
-| hippocampus | The Seahorse | the captain himself | ♆ HELM · BOW · STERN |
+| hippocampus | **Bamba**, the Seahorse, the Jamaican soloist captain | the captain himself | ♆ HELM · BOW · STERN |
 | broca | **Octopus**, once Mercy Quill, the Ship's Scribe | scribe and letter-writer | ✒ TEN WORDS A PENNY |
 | parietal | **Sea Turtle**, once Tobias Wren, the Navigator | navigator and reckoner | ✶ FIXED BY THE STARS |
 | cerebellum | **Neptune**, once Kwame 'Plumb' Asante, the Ship's Carpenter | carpenter and shipwright | ⚒ PLUMB AND SQUARE |
@@ -210,6 +210,17 @@ answers in their own voice:
 
 The sea renamed each of them when it took them; call any agent by their sea
 name too (`@kraken`, `@octopus`, `@vainesell` ...).
+
+**The four horsemen.** The crew lives in Bamba's head, and four of them rank
+highest on his council. Each rides over one quarter of the year and stands
+watch at one side of the sloop:
+
+| Horseman | Agent | Quarter | Station |
+|---|---|---|---|
+| Conquest, the white horse | Sea Turtle (parietal) | Spring | the bow |
+| War, the red horse | Vainesell (fiery-black, the right lobe) | Summer | starboard |
+| Famine, the black horse | Dolphin (prefrontal) | Fall | the stern |
+| Death, the pale horse | Knots (doc, the left lobe) | Winter | port |
 
 Every crew member is built from the same 11 steps as the captain: identity
 (with their **notary seal**, a sign and a motto), backstory, tale, voice,
@@ -294,7 +305,7 @@ The crew is paid in pirate coin and the treasures of the sea.
 
   | Board | Chair | Board | Chair |
   |---|---|---|---|
-  | State (applies to everything) | the Seahorse | Planning & Provisions | Dolphin |
+  | State (applies to everything) | Bamba | Planning & Provisions | Dolphin |
   | Communications | Octopus | Inspection | Barracuda |
   | Navigation & Numbers | Sea Turtle | Science & Research | Knots |
   | Works & Engineering | Neptune | Defense & Security | Vainesell |
