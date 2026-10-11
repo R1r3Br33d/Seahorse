@@ -10,7 +10,8 @@ treasury.py - the ship's treasury, paid in pirate coin and the treasures of the 
                  relay.
     A BOTTLE     A message in a bottle: a single amendment, one proposed change,
                  thrown to the shillings with /law [board:] <text>. All ten vote
-                 aye or nay in seat order; a bottle that fails washes ashore.
+                 aye or nay in seat order; a bottle that fails washes ashore on Atlantizz,
+                 the land.
     GALLEONS     Ten shillings voting aye make a galleon. The Treasurer sinks it
                  into the reef, where it becomes a SHIPWRECK: a law.
     REEF         The REEF COURTESY STANDARD OPERATION (RCSO) - the constitution:
@@ -29,7 +30,7 @@ treasury.py - the ship's treasury, paid in pirate coin and the treasures of the 
                    currents   how the work is distributed across the workers
                    undertow   what is held back, pulled down by the Mariana
                               Trench (/trench): calls a worker couldn't take,
-                              secrets never stored, bottles washed ashore.
+                              secrets never stored, bottles washed ashore on Atlantizz.
                               Each thing pulled under sinks a tenth of the
                               way (1,093 m); ten reach Challenger Deep.
                    locker     Davy Jones' Locker, the core that churns the
@@ -485,7 +486,7 @@ def vote_lines(text, votes, threshold, status, order, board=STATE):
     art = laws(board)[-1]["art"] if status == "minted" and laws(board) else ""
     verdict = {"minted": f"a galleon - sunk into the reef as Wreck {art}, a law ({n} of {PER_BOARD} on the "
                          f"{BOARDS.get(board, 'State')} board)" + (" - the board is complete: a BLACK PEARL" if black else ""),
-               "failed": f"short of the {threshold} shillings needed: the bottle washes ashore, no galleon sails",
+               "failed": f"short of the {threshold} shillings needed: the bottle washes ashore on Atlantizz, no galleon sails",
                "full": f"a galleon, but the {BOARDS.get(board, 'State')} board is already a black pearl ({PER_BOARD} "
                        "shipwrecks): raise one first (/law repeal <wreck>)",
                "empty": "nothing to vote on"}[status]
@@ -527,7 +528,7 @@ def describe(order, threshold=GALLEON):
     lines += ["", cabinet_text()]
     if data["failed"]:
         last = data["failed"][-1]
-        lines += ["", f"  Last bottle washed ashore: \"{last['text']}\" ({last['ayes']} aye, {last['nays']} nay)"]
+        lines += ["", f"  Last bottle washed ashore on Atlantizz: \"{last['text']}\" ({last['ayes']} aye, {last['nays']} nay)"]
     lines += ["", budget_text()]
     return "\n".join(lines)
 
@@ -577,7 +578,7 @@ def trench_lines(data=None, memory=None, workers=None):
     return ["  Undertow - the Mariana Trench pulls under whatever is held back:",
             f"    calls a worker couldn't take (sent on to the next): {down}",
             f"    secrets (passwords, keys, card numbers) refused by memory: {blocked}",
-            f"    bottles voted down and washed ashore: {ashore}",
+            f"    bottles voted down and washed ashore on Atlantizz: {ashore}",
             "    chats saved under the old incognito mode: excluded from training and your profile",
             f"    depth  {gauge}  {depth:,} m of {CHALLENGER_DEEP:,} m - {where}"]
 

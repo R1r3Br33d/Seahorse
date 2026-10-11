@@ -285,7 +285,7 @@ The crew is paid in pirate coin and the treasures of the sea.
   in seat order.
 - **Shipwrecks are law.** Ten ayes (by default) make a galleon, and the Kraken
   sinks it into the reef: it becomes a shipwreck, a law. A bottle that fails
-  washes ashore. One that would conflict with honesty, your wellbeing or safety
+  washes ashore on Atlantizz, the land. One that would conflict with honesty, your wellbeing or safety
   is voted down.
 - **The Reef Courtesy Standard Operation (RCSO)** is the constitution: every
   shipwreck on the reef. Every agent follows it.
@@ -329,7 +329,7 @@ The crew is paid in pirate coin and the treasures of the sea.
     members carried the work.
   - **Undertow**: the Mariana Trench drives it, pulling down whatever is held
     back: calls a worker couldn't take (sent on to the next), secrets memory
-    refused to store, bottles that washed ashore, chats from the old incognito
+    refused to store, bottles that washed ashore on Atlantizz, chats from the old incognito
     mode. Each thing pulled under sinks a tenth of the trench (1,093 m) and a
     depth gauge shows the zone it has reached; ten reach Challenger Deep
     (10,935 m). Nothing the trench takes comes back up into a reply.
