@@ -780,7 +780,8 @@ class Session:
         pick = self.agents.router.predict(text, self.agents.agents)
         d = council.decide(self.agents.agents, text, pick if pick[0] and pick[1] >= 0.5 else None, perceived,
                            previous=self.agent.name if self.messages else None, has_history=bool(self.messages),
-                           max_steps=int(self.config.get("council_steps", council.DEFAULTS["council_steps"])))
+                           max_steps=int(self.config.get("council_steps", council.DEFAULTS["council_steps"])),
+                           seats=self.config.get("council_seats"))
         council.record(d)
         self.show_sub(self.agents.default, {"name": "council vote", "icon": "⚑", "color": 252, "lobe": True,
                                             "kind": "council"}, "\n".join(d.lines()))
@@ -810,7 +811,7 @@ class Session:
                                       "color": agent.color, "lobe": True, "kind": "step"}, work)
                 if not approve_on:
                     break
-                voters = council.approvers(name, nxt)
+                voters = council.approvers(name, nxt, self.config.get("council_seats"))
                 judge = self.agents.get("judge") or agent
                 with self.busy_with(f"the crew is voting on step {i}", judge):
                     raw = self._quick_call(judge, judge.slim_system(),
@@ -1240,6 +1241,8 @@ HELP = f"""{BOLD}Commands{RESET}
   /persona [use|save|delete|new] <name>   saved personas (the Seahorse is built in)
   /council                  how all ten agents voted on who answers (auto mode), and the stats
   /council on|off · steps <n> · approval on|off · threshold <x> · revisions <n>   tune the council
+  /council seats            the council table: votes run 01→05 along the top, then 06→10 back; 1+ breaks ties
+  /council seat <1-10> <agent>   reseat an agent (swaps with whoever sat there) · /council reseat for the default
   /crew                     his crew: every agent's character (name, post, greeting)
   /crew <agent>             one crew member in full: backstory, tale, voice, spirit...
   /build crew <agent> [step]   build a crew member with the same 11 steps
@@ -2357,6 +2360,19 @@ def council_command(session, arg):
     elif words[:1] == ["revisions"] and len(words) == 2 and words[1].isdigit():
         cfg["council_revisions"] = max(0, min(2, int(words[1])))
         ui.note(f"a step can be sent back {cfg['council_revisions']} time(s)")
+    elif words == ["seats"]:
+        print("\n".join(council.seat_chart(cfg.get("council_seats"))))
+        return print()
+    elif words[:1] == ["seat"] and len(words) == 3 and words[1].isdigit() and 1 <= int(words[1]) <= 10:
+        agent = session.agents.get(words[2])
+        if not agent:
+            ui.note("no such agent")
+            return print()
+        cfg["council_seats"] = council.reseat(cfg.get("council_seats"), int(words[1]), agent.name)
+        print("\n".join(council.seat_chart(cfg["council_seats"])))
+    elif words == ["seats", "reset"] or words == ["reseat"]:
+        cfg.pop("council_seats", None)
+        ui.note("seats back to the default")
     elif words == ["stats", "reset"]:
         council.reset_stats()
         ui.note("council stats cleared")
@@ -2366,8 +2382,10 @@ def council_command(session, arg):
         ui.note(f"council {'on' if on else 'off'} (used in auto mode) · relays up to "
                 f"{cfg.get('council_steps', 3)} · approval {'on' if cfg.get('council_approval', True) is not False else 'off'} "
                 f"at {float(cfg.get('council_threshold', 0.66)):.0%} · {cfg.get('council_revisions', 1)} revision(s)")
+        print("\n".join(council.seat_chart(cfg.get("council_seats"))))
         print(council.describe_stats())
-        ui.note("/council on|off · steps <1-4> · approval on|off · threshold <0.34-1> · revisions <0-2> · stats reset")
+        ui.note("/council on|off · steps <1-4> · approval on|off · threshold <0.34-1> · revisions <0-2> · "
+                "seats · seat <1-10> <agent> · reseat · stats reset")
         return print()
     ui.save_config(cfg)
     print()

@@ -240,7 +240,7 @@ def describe(session):
                 g["value"] = value(session, f["key"])
                 s["fields"].append(g)
         out.append(s)
-    return {"sections": out, "lobeStats": lobes.load_stats(), "councilStats": __import__("council").describe_stats().strip(), "lobeStatsText": lobes.describe_stats().strip(),
+    return {"sections": out, "lobeStats": lobes.load_stats(), "councilStats": "\n".join(l.strip() if i < 2 else l for i, l in enumerate(__import__("council").seat_chart(session.config.get("council_seats")))) + "\n\n" + __import__("council").describe_stats().strip(), "lobeStatsText": lobes.describe_stats().strip(),
             "approaches": lobes.APPROACHES, "data": data_summary(session),
             "character": {"title": _title(session), "piece": session.persona.character.get("tale", "")}}
 

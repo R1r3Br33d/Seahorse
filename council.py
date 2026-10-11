@@ -62,6 +62,14 @@ DEFAULTS = {
     "council_revisions": 1,     # revisions allowed when a step isn't approved
 }
 
+# The council table and the voting sequence:
+#      ^ .01.02.03.04.05      votes run left to right along the top row,
+#     1+ .10.09.08.07.06      then turn and run right to left along the bottom,
+# so seat 10 ends beside seat 01, and "1+" hands back to seat 01 for a casting
+# vote that is used only to break a tie. /council seat <n> <agent> reseats them.
+SEATS = ["hippocampus", "doc", "parietal", "cerebellum", "prefrontal",      # 01-05, top row, left to right
+         "wernicke", "broca", "cingulate", "fiery-black", "judge"]          # 06-10, bottom row, right to left
+
 SELF_BIAS = 1.5       # an agent with a real claim backs itself
 CLAIM_FLOOR = 0.34    # below this an agent doesn't put itself forward
 RELAY_CLAIM = 0.5     # a second agent needs this much claim to join a relay
@@ -97,30 +105,54 @@ def claims(agents, text, router_pick=None, perceived=None, previous=None, follow
     return out
 
 
-def ballots(claim_map, follow_up=False, previous=None):
-    """Each agent's vote: {voter: candidate}. Agents favour their own claim a little."""
-    votes = {}
-    for voter in claim_map:
-        seen = {}
-        for cand, (c, _why) in claim_map.items():
-            if cand == voter and c >= CLAIM_FLOOR:
-                c *= SELF_BIAS
-            seen[cand] = c
-        if voter == CAPTAIN and follow_up and previous in claim_map:
-            votes[voter] = previous          # the captain keeps whoever is already working
+def seating(agents, seats=None):
+    """The voting order: seats 01-10 as set (missing agents skipped), then any agents of your own."""
+    order = [a for a in (seats or SEATS) if a in agents]
+    return order + sorted(a for a in agents if a not in order)
+
+
+def ballots(claim_map, follow_up=False, previous=None, order=None):
+    """Votes cast one at a time in seat order: {voter: candidate} (insertion order = the sequence).
+
+    An agent with a real claim of its own backs itself; the rest back the strongest claim, and when
+    claims are level they back whoever is leading the votes cast so far. Order matters.
+    """
+    votes, running = {}, {}
+    for voter in (order or list(claim_map)):
+        if voter not in claim_map:
             continue
-        best = max(seen.values())
-        top = [cand for cand, c in seen.items() if c == best]
-        votes[voter] = CAPTAIN if (best < CLAIM_FLOOR or CAPTAIN in top) else sorted(top)[0]
+        if voter == CAPTAIN and follow_up and previous in claim_map:
+            pick = previous                   # the captain keeps whoever is already working
+        else:
+            seen = {}
+            for cand, (c, _why) in claim_map.items():
+                seen[cand] = c * SELF_BIAS if cand == voter and c >= CLAIM_FLOOR else c
+            best = max(seen.values())
+            top = [cand for cand, c in seen.items() if abs(c - best) < 1e-9]
+            if best < CLAIM_FLOOR or (CAPTAIN in top and len(top) == 1):
+                pick = CAPTAIN
+            else:   # level claims: follow the running leader, else the earliest seat
+                seq = order or list(claim_map)
+                pick = max(top, key=lambda c: (running.get(c, 0), -seq.index(c) if c in seq else -99))
+        votes[voter] = pick
+        running[pick] = running.get(pick, 0) + 1
     return votes
 
 
-def tally(votes):
+def tally(votes, claim_map=None, order=None):
+    """(ranked [(candidate, votes)], casting) - on a tie for first, seat 01 casts the deciding vote (1+)."""
     counts = {}
     for cand in votes.values():
         counts[cand] = counts.get(cand, 0) + 1
-    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], PIPELINE.index(kv[0]) if kv[0] in PIPELINE else 99))
-    return ranked
+    seq = order or list(votes)
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], seq.index(kv[0]) if kv[0] in seq else 99))
+    casting = None
+    if len(ranked) > 1 and ranked[0][1] == ranked[1][1]:
+        tied = [c for c, n in ranked if n == ranked[0][1]]
+        cm = claim_map or {}
+        casting = max(tied, key=lambda c: (cm.get(c, (0,))[0], -(seq.index(c) if c in seq else 99)))
+        ranked = [(casting, counts[casting])] + [kv for kv in ranked if kv[0] != casting]
+    return ranked, casting
 
 
 def relay(lead, claim_map, max_steps):
@@ -138,13 +170,28 @@ def relay(lead, claim_map, max_steps):
 
 
 class Decision:
-    def __init__(self, lead, votes, ranked, claim_map, steps):
+    def __init__(self, lead, votes, ranked, claim_map, steps, order=None, casting=None):
         self.lead, self.votes, self.ranked, self.claims, self.steps = lead, votes, ranked, claim_map, steps
+        self.order, self.casting = order or list(votes), casting
+
+    def table(self):
+        """The council table as voted: top row 01-05, bottom row 10-06 (as the seats sit)."""
+        seat = {a: i + 1 for i, a in enumerate(self.order)}
+        cell = lambda a: f"{seat[a]:02d} {a}›{self.votes.get(a, '-')}"
+        top = [cell(a) for a in self.order[:5]]
+        bottom = [cell(a) for a in reversed(self.order[5:10])]
+        rows = ["^  " + " · ".join(top), "1+ " + " · ".join(bottom)]
+        extra = self.order[10:]
+        if extra:
+            rows.append("   then " + " · ".join(cell(a) for a in extra))
+        return rows
 
     def lines(self):
         top = self.ranked[0]
-        out = [f"lead: {self.lead} · {top[1]} of {len(self.votes)} votes"]
+        out = [f"lead: {self.lead} · {top[1]} of {len(self.votes)} votes"
+               + (f" · tie broken by seat 01's casting vote (1+)" if self.casting else "")]
         out.append("votes: " + " · ".join(f"{n} {c}" for n, c in self.ranked))
+        out += self.table()
         why = [f"{n}: {', '.join(self.claims[n][1])}" for n in self.steps if self.claims[n][1]]
         if why:
             out.append("why: " + " | ".join(why))
@@ -153,30 +200,50 @@ class Decision:
         return out
 
 
-def decide(agents, text, router_pick=None, perceived=None, previous=None, has_history=False, max_steps=3):
+def decide(agents, text, router_pick=None, perceived=None, previous=None, has_history=False, max_steps=3,
+           seats=None):
     follow_up = bool(has_history and previous and len(text) < FOLLOW_UP_CHARS)
     cm = claims(agents, text, router_pick, perceived, previous, follow_up)
-    votes = ballots(cm, follow_up, previous)
-    ranked = tally(votes)
+    order = seating(agents, seats)
+    votes = ballots(cm, follow_up, previous, order)
+    ranked, casting = tally(votes, cm, order)
     lead = ranked[0][0]
     steps = relay(lead, cm, max_steps) if not follow_up else [lead]
-    return Decision(lead, votes, ranked, cm, steps)
+    return Decision(lead, votes, ranked, cm, steps, order, casting)
+
+
+def seat_chart(seats=None):
+    """The seating chart for display."""
+    s = list(seats or SEATS)
+    top = " ".join(f"{i + 1:02d} {a}" for i, a in enumerate(s[:5]))
+    bottom = " ".join(f"{10 - i:02d} {a}" for i, a in enumerate(reversed(s[5:10]))) if len(s) > 5 else ""
+    return [f"  ^  {top}", f"  1+ {bottom}", "  votes run 01→05 along the top, then 06→10 back along the bottom; on a tie, "
+            "seat 01 casts the deciding vote (1+)"]
+
+
+def reseat(seats, n, agent):
+    """Put `agent` in seat n (1-10); whoever sat there takes the agent's old seat."""
+    s = list(seats or SEATS)
+    if agent in s:
+        i = s.index(agent)
+        s[i], s[n - 1] = s[n - 1], agent
+    else:
+        s[n - 1] = agent
+    return s
 
 
 # ---------------------------------------------------------------------------
 # The approval step
 # ---------------------------------------------------------------------------
-def approvers(step_agent, next_agent):
-    """Who approves a handoff: the next agent, the Bosun and the Judge (the captain stands in for an author)."""
+def approvers(step_agent, next_agent, seats=None):
+    """Who approves a handoff: the next agent, the Bosun and the Judge (the captain stands in for an author).
+    They vote in seat order."""
     out = [next_agent]
     for a in ("cingulate", "judge"):
         out.append(CAPTAIN if a == step_agent else a)
-    seen, ordered = set(), []
-    for a in out:
-        if a not in seen:
-            seen.add(a)
-            ordered.append(a)
-    return ordered
+    seq = list(seats or SEATS)
+    unique = list(dict.fromkeys(out))
+    return sorted(unique, key=lambda a: seq.index(a) if a in seq else len(seq))
 
 
 def approval_prompt(user_text, step_agent, part, work, next_agent, voters):

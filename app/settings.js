@@ -94,7 +94,7 @@ function renderSection() {
   if (s.id === "council") {
     const card = document.createElement("div");
     card.className = "set-card";
-    card.innerHTML = `<h3 class="set-card-title">How the council has voted</h3><pre class="prompt-preview">${esc(SET.councilStats || "")}</pre>`;
+    card.innerHTML = `<h3 class="set-card-title">The council table and how it has voted</h3><p class="muted small">Votes run 01 → 05 along the top, then turn and run 06 → 10 back along the bottom. On a tie, seat 01 casts the deciding vote (1+). Reseat with <code>/council seat 3 broca</code>.</p><pre class="prompt-preview">${esc(SET.councilStats || "")}</pre>`;
     main.appendChild(card);
   }
   if (s.id === "models") main.appendChild(note("Changing the base model or the character rebuilds the local 'seahorse' model in the background when Ollama is running."));

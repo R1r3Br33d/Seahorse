@@ -229,6 +229,21 @@ Settings → Crew.
 
 In auto mode, all ten agents decide together who answers each message.
 
+The ten sit at a council table, and every vote runs in this sequence:
+
+```
+ ^  01 hippocampus · 02 doc · 03 parietal · 04 cerebellum · 05 prefrontal     → left to right
+ 1+ 10 judge · 09 fiery-black · 08 cingulate · 07 broca · 06 wernicke         ← right to left
+```
+
+Ballots are cast one at a time, 01 to 05 along the top, then 06 to 10 back
+along the bottom, so seat 10 ends beside seat 01. Order matters: when claims
+are level, each voter backs whoever is leading the votes cast so far. If the
+count still ties, "1+" hands back to seat 01 for a casting vote (the stronger
+claim wins; level claims go to the earlier seat). Approval votes run in seat
+order too. `/council seats` shows the table; `/council seat 3 broca` reseats an
+agent (they swap with whoever sat there); `/council reseat` restores it.
+
 1. **The vote.** Every agent stakes a claim: its trigger words, what routing
    has learned from your own `@` picks, what its lens noticed, and whether
    it's already working on this. Then all ten vote. An agent with a real claim
