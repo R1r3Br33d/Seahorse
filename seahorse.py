@@ -791,7 +791,7 @@ class Session:
                            max_steps=int(self.config.get("council_steps", council.DEFAULTS["council_steps"])),
                            seats=self.config.get("council_seats"))
         council.record(d)
-        treasury.record_votes(list(d.votes))   # every ballot is a fish counted
+        treasury.record_votes(list(d.votes))   # every ballot is a shilling counted
         self.show_sub(self.agents.default, {"name": "council vote", "icon": "⚑", "color": 252, "lobe": True,
                                             "kind": "council"}, "\n".join(d.lines()))
         if len(d.steps) > 1:
@@ -844,7 +844,7 @@ class Session:
             if not work:
                 break   # the next agent carries on with whatever progress exists
             done.append(f"[step {i} · {name} - {council.PART.get(name, '')}]\n{work}")
-            treasury.record_work(name, text)   # the work passes on, fish to fish
+            treasury.record_work(name, text)   # the work passes on, shilling to shilling
         return "\n\n".join(done), "\n".join(concerns)
 
     def pop_relay_notes(self):
@@ -1251,12 +1251,13 @@ HELP = f"""{BOLD}Commands{RESET}
   /persona [use|save|delete|new] <name>   saved personas (the Seahorse is built in)
   /council                  how all ten agents voted on who answers (auto mode), and the stats
   /council on|off · steps <n> · approval on|off · threshold <x> · revisions <n>   tune the council
-  /treasury                 the treasury: every agent a fish, Poseidon (the Judge) as Treasurer, the constitution
-  /law [board:] <text>      propose a bill (a single amendment) to a cabinet board; all ten fish vote; ten ayes
-                            make a pearl, a law (boards: state, communications, navigation, works,
-                            education, planning, inspection, science, defense, treasury - or an agent's name)
-  /laws [all] · /law repeal <article>   the constitution, set in stone: a numbered index (Art. 9.01 = board 9,
-                            first pearl), hash-chained and append-only; 10 pearls per board, a full board is a black pearl
+  /treasury                 the treasury: every agent a shilling, Poseidon (the Judge) as Treasurer, the reef
+  /law [board:] <text>      propose a bill (a single amendment) to a cabinet board; all ten shillings vote; ten ayes
+     (or /wreck)            make a galleon, sunk into the reef as a shipwreck: a law (boards: state, communications,
+                            navigation, works, education, planning, inspection, science, defense, treasury)
+  /reef [all] · /law repeal <wreck>   the Reef Courtesy Standard Operation (RCSO, the constitution), set in stone:
+                            a numbered index (Wreck 9.01 = board 9, first wreck), hash-chained and append-only;
+                            10 shipwrecks per board, a full board is a black pearl (/laws works too)
   /budget                   the marlin is the people: your goals, direction, future - and what's in the budget
   /trident                  Poseidon's Trident: currents (goals), undertow (what's held back), flow of information
   /budget add <goal> · set <n> <share> · drop <n>   share the marlin (100 parts) across your goals
@@ -2214,7 +2215,9 @@ def handle_command(session, line):
         crew_command(session, arg)
     elif cmd == "council":
         council_command(session, arg)
-    elif cmd in ("treasury", "law", "laws", "budget", "dollar", "marlin", "goal", "goals", "trident"):
+    elif cmd in ("treasury", "law", "laws", "wreck", "wrecks", "reef", "rcso", "budget", "dollar", "marlin", "goal",
+                 "goals", "trident"):
+        cmd = {"wreck": "law", "wrecks": "laws", "reef": "laws", "rcso": "laws"}.get(cmd, cmd)
         treasury_command(session, cmd, arg)
     elif cmd == "units":
         import units as U
@@ -2360,7 +2363,7 @@ def load_extra_instructions():
 
 
 def treasury_command(session, cmd, arg):
-    """/treasury, /laws, /law <text>, /law repeal <n>."""
+    """/treasury, /reef (/laws), /law <text> (/wreck), /law repeal <wreck>, /budget, /trident."""
     cfg = session.config
     order = council.seating(session.agents.agents, cfg.get("council_seats"))
     threshold = int(cfg.get("law_threshold", treasury.DEFAULTS["law_threshold"]))
@@ -2388,17 +2391,17 @@ def treasury_command(session, cmd, arg):
         except ValueError as e:
             ui.note(str(e))
             return print()
-        ui.note(f"repealed Art. {gone['art']} ({treasury.BOARDS.get(gone['board'])} board): \"{gone['text']}\" - the "
-                "repeal is carved in stone and the number is retired" if gone
-                else "no article in force by that number (/laws shows them, e.g. 9.01)")
+        ui.note(f"Wreck {gone['art']} raised from the reef ({treasury.BOARDS.get(gone['board'])} board): \"{gone['text']}\""
+                " - the repeal is carved in stone and the number is retired" if gone
+                else "no shipwreck in force by that number (/reef shows them, e.g. 9.01)")
     elif cmd == "laws":
         print(treasury.cabinet_text(show_repealed=arg.strip() in ("all", "history")))
-        ui.note(f"/law <board>: <text> proposes a bill · /law repeal <article> · /laws all for repealed articles · "
+        ui.note(f"/law <board>: <text> proposes a bill · /law repeal <wreck> · /reef all for raised wrecks · "
                 f"readable copy: {treasury.STONE_MD}")
     elif cmd == "law" and arg.strip():
         board, bill = treasury.board_for(arg.strip(), session.agents)
         judge = session.agents.get(treasury.TREASURER) or session.agents.default
-        with Spinner("all ten fish are voting"):
+        with Spinner("all ten shillings are voting"):
             raw = session._quick_call(judge, judge.slim_system(), treasury.law_prompt(bill, order, board), 900)
         votes = treasury.parse_votes(raw, order)
         if not votes:
@@ -2414,7 +2417,7 @@ def treasury_command(session, cmd, arg):
                          "\n".join(treasury.vote_lines(bill, votes, threshold, status, order, board)))
     else:
         print(treasury.describe(order, threshold))
-        ui.note("/law [board:] <text> propose a bill · /law repeal #<n> · /laws · a bill needs ten ayes to become a pearl")
+        ui.note("/law [board:] <text> propose a bill · /law repeal <wreck> · /reef · ten ayes make a galleon, sunk as a shipwreck")
     print()
 
 

@@ -1,36 +1,39 @@
 #!/usr/bin/env python3
 """
-treasury.py - the ship's treasury, paid in the currency of the sea.
+treasury.py - the ship's treasury, paid in pirate coin and the treasures of the sea.
 
-    FISH         Each of the ten agents is a fish, numbered by council seat:
-                 ><>01 is seat 01 (the captain) ... ><>10 is seat 10 (Poseidon).
+    SHILLINGS    Each of the ten agents is a shilling, numbered by council seat:
+                 s01 is seat 01 (the captain) ... s10 is seat 10 (Poseidon).
                  Every ballot an agent casts and every piece of work it carries
-                 is counted in fish.
-    WORK         Moves through the agents one by one, fish to fish, in a relay.
-    A BILL       A single amendment: one proposed change, put to the fish with
+                 is counted in shillings.
+    WORK         Moves through the agents one by one, shilling to shilling, in a
+                 relay.
+    A BILL       A single amendment: one proposed change, put to the shillings with
                  /law [board:] <text>. All ten vote aye or nay in seat order.
-    PEARLS       Ten fish voting aye make a pearl, and a pearl is a LAW: the
-                 Treasurer sets the amendment in the constitution.
-    BLACK PEARLS The constitution is filed by government cabinet board: ten
-                 boards, each chaired by an agent, ten pearls per board. A board
-                 with all ten pearls is a black pearl, the rarest thing in the
+    GALLEONS     Ten shillings voting aye make a galleon. The Treasurer sinks it
+                 into the reef, where it becomes a SHIPWRECK: a law.
+    REEF         The REEF COURTESY STANDARD OPERATION (RCSO) - the constitution:
+                 every shipwreck on the reef. Every agent follows it.
+    BLACK PEARLS The RCSO is filed by government cabinet board: ten
+                 boards, each chaired by an agent, ten shipwrecks per board. A board
+                 with all ten shipwrecks is a black pearl, the rarest thing in the
                  sea. A full board takes no more until one is repealed.
     MARLIN       POSEIDON'S TRIDENT: the oceanic army, the Atlantean control of
                  currents, undertow and the flow of information (data). It is
                  the people - you, your goals, direction and future - and every
-                 fish and pearl serves it. Its three prongs:
+                 shilling and galleon serves it. Its three prongs:
                    currents   where the crew's effort flows: your goals and the budget
                    undertow   what is pulled under and kept out of circulation:
                               secrets never stored, bills voted down, chats excluded
                    flow       the flow of information: how much data, from which
                               source, reaches each reply (/trident)
     BUDGET       How the marlin is shared across your goals, in parts out of 100
-                 (/budget). Every fish of work the crew carries is counted
+                 (/budget). Every shilling of work the crew carries is counted
                  against the goal it served.
-    TREASURER    Poseidon (the Judge) keeps the ledger, counts every vote, sets
-                 the pearls and keeps the budget.
+    TREASURER    Poseidon (the Judge) keeps the ledger, counts every vote,
+                 sinks the galleons and keeps the budget.
 
-The constitution never outranks Seahorse's core values or the core character
+The RCSO never outranks Seahorse's core values or the core character
 rules: honesty, your wellbeing, safety. A bill that conflicts with them is
 voted down, and the prompt says plainly that they win. Ledger:
 ~/.seahorse/treasury.json.
@@ -44,9 +47,9 @@ from pathlib import Path
 
 LEDGER = Path.home() / ".seahorse" / "treasury.json"
 TREASURER = "judge"
-PEARL = 10         # fish voting aye in a pearl (a law)
+GALLEON = 10         # shillings voting aye in a galleon (sunk, it becomes a shipwreck: a law)
 SHARES = 100       # the marlin, shared across your goals in parts out of 100
-DEFAULTS = {"law_threshold": 10}   # ayes needed to set a pearl (10 = every fish)
+DEFAULTS = {"law_threshold": 10}   # ayes needed to set a galleon (10 = every shilling)
 
 
 def _load():
@@ -54,12 +57,12 @@ def _load():
         data = json.loads(LEDGER.read_text())
     except (OSError, json.JSONDecodeError):
         data = {}
-    data.setdefault("fish", data.pop("pennies", {}))   # older ledgers counted "pennies"
+    data.setdefault("shillings", data.pop("fish", data.pop("pennies", {})))   # older ledgers counted fish, pennies
     data.setdefault("laws", [])
     data.setdefault("failed", [])
     data.setdefault("next_id", 1)
     data.setdefault("goals", [])        # the marlin: [{"text", "cents" (share of 100), "spent", "added"}]
-    data.setdefault("general", 0)       # fish of work that served no listed goal
+    data.setdefault("general", 0)       # shillings of work that served no listed goal
     return data
 
 
@@ -71,21 +74,21 @@ def _save(data):
         pass
 
 
-def fish(agent, order):
-    """An agent's fish label from its council seat: '><>07'."""
-    return f"><>{order.index(agent) + 1:02d}" if agent in order else "><>--"
+def shilling(agent, order):
+    """An agent's shillings label from its council seat: 's07'."""
+    return f"s{order.index(agent) + 1:02d}" if agent in order else "s--"
 
 
-penny = fish   # older name
+fish = penny = shilling   # older names
 
 
 # ---------------------------------------------------------------------------
-# The ledger: fish cast and carried
+# The ledger: shillings cast and carried
 # ---------------------------------------------------------------------------
 def record_votes(voters):
     data = _load()
     for a in voters:
-        p = data["fish"].setdefault(a, {"votes": 0, "work": 0})
+        p = data["shillings"].setdefault(a, {"votes": 0, "work": 0})
         p["votes"] += 1
     _save(data)
 
@@ -110,9 +113,9 @@ def goal_for(text, goals):
 
 
 def record_work(agent, text=""):
-    """A fish of work carried by `agent`, spent on the goal it served (or general upkeep)."""
+    """A shilling of work carried by `agent`, spent on the goal it served (or general upkeep)."""
     data = _load()
-    p = data["fish"].setdefault(agent, {"votes": 0, "work": 0})
+    p = data["shillings"].setdefault(agent, {"votes": 0, "work": 0})
     p["work"] += 1
     i = goal_for(text, data["goals"])
     if i is None:
@@ -195,7 +198,7 @@ def marlin_prompt():
 # The cabinet: ten boards, ten amendments each
 # ---------------------------------------------------------------------------
 # Each board is chaired by an agent and holds up to ten amendments. Ten boards
-# of ten pearls is a hundred; a full board is a black pearl.
+# of ten shipwrecks is a hundred; a full board is a black pearl.
 BOARDS = {
     "hippocampus": "State",                 # the captain's board: amendments here apply to everything
     "broca": "Communications",
@@ -217,18 +220,18 @@ def board_of(law):
 
 
 # ---------------------------------------------------------------------------
-# The constitution, set in stone: a numbered index for processing
+# The Reef Courtesy Standard Operation (the constitution), set in stone: a numbered index for processing
 # ---------------------------------------------------------------------------
-# Every pearl gets a permanent article number: its board's number, then its
-# place on that board - Art. 9.01 is the first pearl ever set on the Defense &
+# Every shipwreck gets a permanent wreck number: its board's number, then its
+# place on that board - Wreck 9.01 is the first galleon ever sunk on the Defense &
 # Security board. The stone is append-only: an enactment or a repeal is a new
 # entry, each sealed with a SHA-256 hash of the one before it, so numbers are
-# never reused or rewritten and any tampering with the file shows. Articles are
+# never reused or rewritten and any tampering with the file shows. Wrecks are
 # processed in index order: State (board 1) first, then board by board; where
-# two conflict, the lower article number prevails. ~/.seahorse/constitution.json
-# is the stone; CONSTITUTION.md beside it is rewritten from it for reading.
+# two conflict, the lower wreck number prevails. ~/.seahorse/constitution.json
+# is the stone; RCSO.md beside it is rewritten from it for reading.
 STONE = Path.home() / ".seahorse" / "constitution.json"
-STONE_MD = Path.home() / ".seahorse" / "CONSTITUTION.md"
+STONE_MD = Path.home() / ".seahorse" / "RCSO.md"
 BOARD_NO = {chair: i for i, chair in enumerate(BOARDS, 1)}
 
 
@@ -259,7 +262,7 @@ def _carve(action, art, board, text, ayes=0, nays=0):
     entries = _stone()
     ok, broken = verify()
     if not ok:
-        raise ValueError(f"the constitution's seal is broken at entry {broken + 1}: restore constitution.json "
+        raise ValueError(f"the reef's seal is broken at entry {broken + 1}: restore constitution.json "
                          "before carving anything new")
     prev = entries[-1]["hash"] if entries else "stone"
     e = {"n": len(entries) + 1, "action": action, "art": art, "board": board, "text": text,
@@ -267,7 +270,7 @@ def _carve(action, art, board, text, ayes=0, nays=0):
     e["hash"] = _seal(e, prev)
     entries.append(e)
     STONE.parent.mkdir(parents=True, exist_ok=True)
-    STONE.write_text(json.dumps({"about": "Seahorse's constitution, set in stone. Append-only and hash-chained: "
+    STONE.write_text(json.dumps({"about": "Seahorse's Reef Courtesy Standard Operation, set in stone. Append-only and hash-chained: "
                                           "do not edit by hand (any change breaks the seal).",
                                  "entries": entries}, indent=1, ensure_ascii=False))
     _write_md()
@@ -275,8 +278,8 @@ def _carve(action, art, board, text, ayes=0, nays=0):
 
 
 def in_force():
-    """Articles in force, in processing order (board number, then article number). If the stone was changed by
-    hand, only the entries before the break are trusted: a forged or altered article never takes effect."""
+    """Shipwrecks in force, in processing order (board number, then wreck number). If the stone was changed by
+    hand, only the entries before the break are trusted: a forged or altered wreck never takes effect."""
     live = {}
     entries = _stone()
     ok, broken = verify()
@@ -307,21 +310,22 @@ def _migrate():
 
 
 def cite(e):
-    return f"Art. {e['art']}"
+    return f"Wreck {e['art']}"
 
 
 def _write_md():
     ok, _ = verify()
-    lines = ["# The Constitution of Seahorse's crew", "",
-             "Set in stone: every article keeps its number forever. Processed in index order, State first; where "
-             "two conflict, the lower article number prevails. No article outranks Seahorse's core values.", "",
+    lines = ["# The Reef Courtesy Standard Operation (RCSO)", "",
+             "The constitution of Seahorse's crew, set in stone. Every shipwreck on the reef is a law, and keeps its "
+             "number forever. Processed in index order, State first; where two conflict, the lower wreck number "
+             "prevails. No shipwreck outranks Seahorse's core values.", "",
              f"Seal: {'intact' if ok else 'BROKEN - the stone file was changed by hand'}", ""]
     live = {e["art"] for e in in_force()}
     for chair, name in BOARDS.items():
         lines.append(f"## {BOARD_NO[chair]}. {name} board (chaired by {chair})")
         rows = [e for e in _stone() if e["action"] == "enact" and e["board"] == chair]
-        lines += [f"- **Art. {e['art']}** {e['text']} *(enacted {e['date'][:10]}, {e['ayes']} aye)*"
-                  + ("" if e["art"] in live else " - **repealed**") for e in rows] or ["- (no articles)"]
+        lines += [f"- **Wreck {e['art']}** {e['text']} *(sunk {e['date'][:10]}, {e['ayes']} aye)*"
+                  + ("" if e["art"] in live else " - **raised (repealed)**") for e in rows] or ["- (no shipwrecks)"]
         lines.append("")
     try:
         STONE_MD.write_text("\n".join(lines))
@@ -351,13 +355,13 @@ def board_for(text, agents=None):
 
 
 # ---------------------------------------------------------------------------
-# Bills (single amendments) and pearls (laws)
+# Bills (single amendments), galleons and shipwrecks (laws)
 # ---------------------------------------------------------------------------
 def law_prompt(text, order, board=STATE):
     current = "\n".join(f"- {l['text']}" for l in laws(board)) or "(none yet)"
-    seats = ", ".join(f"{fish(a, order)} {a}" for a in order)
+    seats = ", ".join(f"{shilling(a, order)} {a}" for a in order)
     return (f"A bill - a single amendment - has been proposed to the {BOARDS[board]} board of the crew's "
-            f"constitution:\n\"{text[:600]}\"\n\n"
+            f"Reef Courtesy Standard Operation (the crew's constitution):\n\"{text[:600]}\"\n\n"
             f"Amendments already in force on this board:\n{current}\n\n"
             f"Vote as each of the ten agents of Seahorse's mind, in seat order: {seats}.\n"
             "Each votes aye or nay from its own role, with one short reason. Vote nay if the amendment would conflict "
@@ -378,7 +382,7 @@ def parse_votes(raw, order):
         if isinstance(v, dict) and v.get("agent") in order and v["agent"] not in got:
             aye = str(v.get("vote", "")).strip().lower().startswith(("aye", "yes", "y"))
             got[v["agent"]] = ("aye" if aye else "nay", re.sub(r"\s+", " ", str(v.get("reason", ""))).strip()[:160])
-    return {a: got[a] for a in order if a in got}   # in seat order; missing fish abstain
+    return {a: got[a] for a in order if a in got}   # in seat order; missing shillings abstain
 
 
 def count(votes, threshold):
@@ -390,7 +394,7 @@ def count(votes, threshold):
 
 def propose(text, votes, threshold, board=STATE):
     """Record the outcome. Returns (status, entry) - status: minted, failed, full or empty.
-    A passed bill is carved into the stone with its permanent article number."""
+    A passed bill is a galleon sunk into the reef: a shipwreck with its permanent wreck number."""
     text = re.sub(r"\s+", " ", text or "").strip()
     if not text:
         return "empty", None
@@ -411,13 +415,14 @@ def propose(text, votes, threshold, board=STATE):
     return "failed", entry
 
 def laws(board=None):
-    """Articles in force (optionally one board's), in index order. Each has art, board, text, ayes, date."""
+    """Shipwrecks (laws) in force, optionally one board's, in index order. Each has art, board, text, ayes, date."""
     _migrate()
     return [e for e in in_force() if board is None or e["board"] == board]
 
 def repeal(article):
-    """Repeal an article by its number ('9.01', 'Art. 9.01'). The repeal is carved too; the number is retired."""
-    art = re.sub(r"(?i)^(art\.?|article|#)\s*", "", str(article).strip())
+    """Raise (repeal) a shipwreck by its number ('9.01', 'Wreck 9.01'). The repeal is carved too; the number is
+    retired."""
+    art = re.sub(r"(?i)^(wreck|art\.?|article|#)\s*", "", str(article).strip())
     for e in in_force():
         if e["art"] == art:
             _carve("repeal", art, e["board"], e["text"])
@@ -442,16 +447,17 @@ def constitution_prompt(agent_name=None, query="", agents=None):
     picked = [l for l in ls if board_of(l) in boards]
     if not picked:
         return ""
-    lines = ["The crew's constitution, set in stone: articles the full council passed into law, numbered by cabinet "
+    lines = ["The Reef Courtesy Standard Operation (RCSO), the crew's constitution, set in stone: shipwrecks - laws "
+             "the full council passed and sank into the reef - numbered by cabinet "
              "board (only the boards that bear on this message are shown). Process them in index order; where two "
-             "conflict, the lower article number prevails. Cite an article by its number if you need to. They never "
+             "conflict, the lower wreck number prevails. Cite a wreck by its number if you need to. They never "
              "outrank your core values or the core character rules; if one ever seems to conflict with those, the "
              "core values win."]
     for chair in BOARDS:
         mine = [l for l in picked if board_of(l) == chair]
         if mine:
             lines.append(f"Board {BOARD_NO[chair]} - {BOARDS[chair]}:")
-            lines += [f"Art. {l['art']} {l['text']}" for l in mine]
+            lines += [f"Wreck {l['art']} {l['text']}" for l in mine]
     return "\n".join(lines)
 
 
@@ -461,53 +467,53 @@ def constitution_prompt(agent_name=None, query="", agents=None):
 def vote_lines(text, votes, threshold, status, order, board=STATE):
     ayes, nays, _ = count(votes, threshold)
     out = [f"bill (a single amendment) to the {BOARDS.get(board, 'State')} board: \"{text}\""]
-    out += [f"{fish(a, order)} {a}: {v}{' - ' + r if r else ''}" for a, (v, r) in votes.items()]
+    out += [f"{shilling(a, order)} {a}: {v}{' - ' + r if r else ''}" for a, (v, r) in votes.items()]
     missing = [a for a in order if a not in votes]
     if missing:
-        out.append("abstained: " + ", ".join(f"{fish(a, order)} {a}" for a in missing))
+        out.append("abstained: " + ", ".join(f"{shilling(a, order)} {a}" for a in missing))
     n = len(laws(board))
     black = n == PER_BOARD
     art = laws(board)[-1]["art"] if status == "minted" and laws(board) else ""
-    verdict = {"minted": f"a pearl, set in stone as Art. {art} ({n} of {PER_BOARD} on the "
+    verdict = {"minted": f"a galleon - sunk into the reef as Wreck {art}, a law ({n} of {PER_BOARD} on the "
                          f"{BOARDS.get(board, 'State')} board)" + (" - the board is complete: a BLACK PEARL" if black else ""),
-               "failed": f"short of the {threshold} fish needed: the bill fails, no pearl is set",
-               "full": f"a pearl, but the {BOARDS.get(board, 'State')} board is already a black pearl ({PER_BOARD} "
-                       "pearls): repeal one first (/law repeal <article>)",
+               "failed": f"short of the {threshold} shillings needed: the bill fails, no galleon sails",
+               "full": f"a galleon, but the {BOARDS.get(board, 'State')} board is already a black pearl ({PER_BOARD} "
+                       "shipwrecks): raise one first (/law repeal <wreck>)",
                "empty": "nothing to vote on"}[status]
     out.append(f"Treasurer's count: {ayes} aye · {nays} nay → {verdict}")
     return out
 
 
 def cabinet_text(show_repealed=False):
-    """The numbered index of the constitution, as set in stone."""
+    """The numbered index of the Reef Courtesy Standard Operation, as set in stone."""
     ls = laws()
     ok, broken = verify()
     blacks = sum(1 for c in BOARDS if len([l for l in ls if board_of(l) == c]) >= PER_BOARD)
-    lines = [f"  The constitution, set in stone - {len(ls)} articles in force across {len(BOARDS)} cabinet boards, "
-             f"{PER_BOARD} pearls per board; a full board is a black pearl ({blacks} so far)",
+    lines = [f"  The Reef Courtesy Standard Operation (RCSO), set in stone - {len(ls)} shipwrecks (laws) in force across {len(BOARDS)} cabinet boards, "
+             f"{PER_BOARD} shipwrecks per board; a full board is a black pearl ({blacks} so far)",
              f"  seal: {'intact - ' + str(len(_stone())) + ' entries, each hash-chained to the last' if ok else 'BROKEN at entry ' + str((broken or 0) + 1) + ': the stone file was changed by hand'}",
-             "  processing order: board 1 (State) first, then by article number; the lower number prevails"]
+             "  processing order: board 1 (State) first, then by wreck number; the lower number prevails"]
     live = {e["art"] for e in ls}
     for chair, name in BOARDS.items():
         mine = [l for l in ls if board_of(l) == chair]
-        lines.append(f"    Board {BOARD_NO[chair]:>2} · {name} ({chair}) · {len(mine)}/{PER_BOARD} pearls"
+        lines.append(f"    Board {BOARD_NO[chair]:>2} · {name} ({chair}) · {len(mine)}/{PER_BOARD} shipwrecks"
                      + (" · a BLACK PEARL" if len(mine) >= PER_BOARD else ""))
-        lines += [f"      Art. {l['art']}  {l['text']}  ({l['ayes']} aye, {l['date'][:10]})" for l in mine]
+        lines += [f"      Wreck {l['art']}  {l['text']}  ({l['ayes']} aye, {l['date'][:10]})" for l in mine]
         if show_repealed:
             gone = [e for e in _stone() if e["action"] == "enact" and e["board"] == chair and e["art"] not in live]
-            lines += [f"      Art. {e['art']}  (repealed) {e['text']}" for e in gone]
+            lines += [f"      Wreck {e['art']}  (raised - repealed) {e['text']}" for e in gone]
     return "\n".join(lines)
 
 
-def describe(order, threshold=PEARL):
+def describe(order, threshold=GALLEON):
     data = _load()
-    lines = [f"  Treasurer: Poseidon ({TREASURER}) · a bill needs {threshold} of {PEARL} fish to become a pearl",
-             "", "  The fish (by seat):"]
+    lines = [f"  Treasurer: Poseidon ({TREASURER}) · a bill needs {threshold} of {GALLEON} shillings to become a galleon",
+             "", "  The shillings (by seat):"]
     for a in order:
-        p = data["fish"].get(a, {"votes": 0, "work": 0})
+        p = data["shillings"].get(a, {"votes": 0, "work": 0})
         tag = "  Treasurer" if a == TREASURER else ""
         chair = f"  chairs {BOARDS[a]}" if a in BOARDS else ""
-        lines.append(f"    {fish(a, order)} {a:<12} {p['votes']:>4} votes cast · {p['work']:>3} pieces of work"
+        lines.append(f"    {shilling(a, order)} {a:<12} {p['votes']:>4} votes cast · {p['work']:>3} pieces of work"
                      f"{chair}{tag}")
     lines += ["", cabinet_text()]
     if data["failed"]:
@@ -518,7 +524,7 @@ def describe(order, threshold=PEARL):
 
 
 def budget_text():
-    """What's in the budget: the marlin's 100 shares across your goals, and the fish of work spent on each."""
+    """What's in the budget: the marlin's 100 shares across your goals, and the shillings of work spent on each."""
     data = _load()
     gs = data["goals"]
     total = sum(g.get("spent", 0) for g in gs) + data["general"]
@@ -530,9 +536,9 @@ def budget_text():
         share = f"{spent / total:.0%}" if total else "0%"
         who = ", ".join(f"{a} {n}" for a, n in sorted(g.get("by", {}).items(), key=lambda kv: -kv[1])[:3])
         lines.append(f"    {i}. {g['text']:<40} budget {g['cents']:>3}/100{' (fixed)' if g.get('fixed') else ''}"
-                     f" · spent {spent} fish ({share} of the work){' · ' + who if who else ''}")
+                     f" · spent {spent} shillings ({share} of the work){' · ' + who if who else ''}")
     lines.append(f"    general upkeep (work for no listed goal): {data['general']} "
-                 "fish")
+                 "shillings")
     return "\n".join(lines)
 
 
@@ -540,7 +546,7 @@ def trident_text(flow=None, memory=None):
     """Poseidon's Trident: the three prongs - currents, undertow and the flow of information."""
     data = _load()
     lines = ["  Ψ Poseidon's Trident - the oceanic army: the Atlantean control of currents, undertow and the flow of",
-             "    information. It is the marlin: the people, and every fish and pearl of the treasury serves it.", "",
+             "    information. It is the marlin: the people, and every shilling and galleon of the treasury serves it.", "",
              budget_text(), "", "  Undertow - what is pulled under and kept out of circulation:"]
     blocked = 0
     if memory is not None:
@@ -549,7 +555,7 @@ def trident_text(flow=None, memory=None):
         except Exception:  # noqa: BLE001 - the count is a nicety
             blocked = 0
     lines += [f"    secrets (passwords, keys, card numbers) refused by memory: {blocked}",
-              f"    bills voted down and kept out of the constitution: {len(data['failed'])}",
+              f"    bills voted down and never sunk into the reef: {len(data['failed'])}",
               "    chats saved under the old incognito mode: excluded from training and your profile",
               "", "  Flow of information - the data that reached the last reply:"]
     if flow:

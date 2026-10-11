@@ -88,7 +88,7 @@ Seahorse: memory, notebooks, profile and character.
 | `memory.py` | Long-term memory: facts, past conversations, condensing long chats |
 | `agents.py` | The ten agents, defined once in a compact table: eight brain regions, plus Doc and Fiery Black as the left and right lobes |
 | `crew.py` | The crew: a character for every agent from the 11 steps, their notary seals, the loyalty pledge and the chant |
-| `treasury.py` | The treasury: agents as fish, bills (single amendments), pearls (laws) in ten cabinet boards, black pearls, the marlin (Poseidon's Trident) and the budget |
+| `treasury.py` | The treasury: agents as shillings, bills (single amendments), galleons sunk as shipwrecks (laws) in the Reef Courtesy Standard Operation, set in stone in ten cabinet boards, black pearls, the marlin (Poseidon's Trident) and the budget |
 | `council.py` | The council: all ten agents vote on who answers, relays with approval steps |
 | `lobes.py` | The lobe vote: Doc and Fiery Black ballot in parallel, the tally, and the Judge on close splits |
 | `settings.py` | Every setting described once, validated and applied (the app's Settings tab) |
@@ -271,22 +271,24 @@ open. `/council` shows the last vote and the stats; `/council steps <1-4>`,
 `/council approval on|off`, `/council threshold <x>`, `/council revisions <n>`
 and `/council off` tune it, or use Settings → Council.
 
-### The treasury: fish, pearls, black pearls and the marlin
+### The treasury: shillings, galleons, shipwrecks, black pearls and the marlin
 
-The crew is paid in the currency of the sea.
+The crew is paid in pirate coin and the treasures of the sea.
 
-- **Fish.** Every agent is a fish, numbered by council seat (><>01 the Seahorse
-  ... ><>10 Poseidon). Every ballot cast and every piece of work carried is
-  counted in fish, and work passes through the agents one by one, fish to fish.
+- **Shillings.** Every agent is a shilling, numbered by council seat (s01 the Seahorse
+  ... s10 Poseidon). Every ballot cast and every piece of work carried is
+  counted in shillings, and work passes through the agents one by one, shilling to shilling.
 - **Treasurer.** Poseidon, the Judge, keeps the ledger, counts the votes and
-  sets the pearls.
+  sinks the galleons.
 - **A bill is a single amendment.** `/law [board:] <text>` proposes one to a
-  government cabinet board. All ten fish vote aye or nay in seat order.
-- **Pearls are law.** Ten ayes (by default) make a pearl: the amendment is set
-  in the constitution. A bill that would conflict with honesty, your wellbeing
-  or safety is voted down.
-- **Black pearls.** The constitution is filed in ten cabinet boards, each
-  chaired by an agent, with up to ten pearls per board:
+  government cabinet board. All ten shillings vote aye or nay in seat order.
+- **Shipwrecks are law.** Ten ayes (by default) make a galleon, and Poseidon
+  sinks it into the reef: it becomes a shipwreck, a law. A bill that would
+  conflict with honesty, your wellbeing or safety is voted down.
+- **The Reef Courtesy Standard Operation (RCSO)** is the constitution: every
+  shipwreck on the reef. Every agent follows it.
+- **Black pearls.** The RCSO is filed in ten cabinet boards, each chaired by
+  an agent, with up to ten shipwrecks per board:
 
   | Board | Chair | Board | Chair |
   |---|---|---|---|
@@ -296,39 +298,39 @@ The crew is paid in the currency of the sea.
   | Works & Engineering | Proteus | Defense & Security | Leviathan |
   | Education | Tethys | Treasury & Justice | Poseidon |
 
-  A board with all ten pearls is a **black pearl** and takes no more until one
-  is repealed (`/law repeal #<n>`). Name the board (`/law security: ...`,
+  A board with all ten shipwrecks is a **black pearl** and takes no more until one
+  is repealed (`/law repeal <wreck>`). Name the board (`/law security: ...`,
   `/law education: ...`, or an agent's name) or let Poseidon file it by its
-  subject. To keep replies lean, each reply carries only the State pearls,
+  subject. To keep replies lean, each reply carries only the State shipwrecks,
   the answering agent's own board, and the boards the message touches.
-  `/laws` shows the whole cabinet. Pearls never outrank the core values.
+  `/reef` shows the whole cabinet. Shipwrecks never outrank the core values.
 - **The marlin is Poseidon's Trident**, the oceanic army: the Atlantean
   control of currents, undertow and the flow of information. It is the people,
-  meaning you, your goals, direction and future, and every fish and pearl
+  meaning you, your goals, direction and future, and every shilling and galleon
   serves it. `/trident` shows its three prongs:
   - **Currents**: where the crew's effort flows. The budget shares the marlin
     (100 parts) across your goals (`/budget add <goal>`, `/budget set <n> <share>`,
-    `/budget drop <n>`); each fish of work is counted against the goal it
+    `/budget drop <n>`); each shilling of work is counted against the goal it
     served, so `/budget` shows what's in the budget and where the effort went.
   - **Undertow**: what is pulled under and kept out of circulation: secrets
     memory refused to store, bills voted down, chats from the old incognito mode.
   - **Flow of information**: exactly how much data, from which source (memory,
-    notebooks, profile, pearls, goals, role, skills), reached the last reply.
+    notebooks, profile, shipwrecks, goals, role, skills), reached the last reply.
 
-**The constitution is set in stone.** Every pearl gets a permanent article
-number, board first: **Art. 9.01** is the first pearl ever set on board 9,
+**The RCSO is set in stone.** Every shipwreck gets a permanent wreck
+number, board first: **Wreck 9.01** is the first galleon ever sunk on board 9,
 Defense & Security. The numbered index is processed in order (board 1, State,
-first; where two articles conflict, the lower number prevails) and agents can
-cite articles by number. The stone (`~/.seahorse/constitution.json`) is
+first; where two shipwrecks conflict, the lower number prevails) and agents
+can cite wrecks by number. The stone (`~/.seahorse/constitution.json`) is
 append-only and hash-chained: enacting or repealing carves a new entry sealed
 to the one before it, so numbers are never reused or rewritten. If the file is
-ever changed by hand, the seal shows as broken, only the articles before the
+ever changed by hand, the seal shows as broken, only the shipwrecks before the
 break stay in force, and nothing new is carved until it's restored. A readable
-copy is kept in `~/.seahorse/CONSTITUTION.md`. `/laws` shows the index,
-`/laws all` includes repealed articles, `/law repeal 9.01` retires one.
+copy is kept in `~/.seahorse/RCSO.md`. `/reef` (or `/laws`) shows the index,
+`/reef all` includes raised (repealed) wrecks, and `/law repeal 9.01` raises one.
 
-`/treasury` shows the whole ledger. Settings → Treasury sets how many ayes a
-pearl needs.
+`/treasury` shows the whole ledger. Settings → Treasury sets how many ayes it
+takes to sink a galleon.
 
 ### The two lobes and the vote
 
