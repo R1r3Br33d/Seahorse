@@ -1311,6 +1311,7 @@ HELP = f"""{BOLD}Commands{RESET}
                             10 shipwrecks per board, a full board is a black pearl (/laws works too)
   /budget                   the marlin is the people: your goals, direction, future - and what's in the budget
   /trident                  Poseidon's Trident, the working class: processing power and how the work is distributed
+  /trench                   the Mariana Trench: the undertow, everything held back and how deep it has sunk
   /budget add <goal> · set <n> <share> · drop <n>   share the marlin (100 parts) across your goals
   /council seats            the council table: votes run 01→05 along the top, then 06→10 back; 1+ breaks ties
   /council seat <1-10> <agent>   reseat an agent (swaps with whoever sat there) · /council reseat for the default
@@ -2267,8 +2268,8 @@ def handle_command(session, line):
     elif cmd == "council":
         council_command(session, arg)
     elif cmd in ("treasury", "law", "laws", "wreck", "wrecks", "reef", "rcso", "budget", "dollar", "marlin", "goal",
-                 "goals", "trident"):
-        cmd = {"wreck": "law", "wrecks": "laws", "reef": "laws", "rcso": "laws"}.get(cmd, cmd)
+                 "goals", "trident", "trench", "undertow"):
+        cmd = {"undertow": "trench", "wreck": "law", "wrecks": "laws", "reef": "laws", "rcso": "laws"}.get(cmd, cmd)
         treasury_command(session, cmd, arg)
     elif cmd == "units":
         import units as U
@@ -2419,11 +2420,14 @@ def treasury_command(session, cmd, arg):
     order = council.seating(session.agents.agents, cfg.get("council_seats"))
     threshold = int(cfg.get("law_threshold", treasury.DEFAULTS["law_threshold"]))
     words = arg.split()
-    if cmd == "trident":
+    if cmd in ("trident", "trench"):
         workers = []
         for b in (session.claude, session.local):
             workers.append({"name": b.label(), "calls": b.calls, "chars": b.chars, "seconds": b.seconds,
                             "unavailable": b.unavailable})
+        if cmd == "trench":
+            print(treasury.trench_text(session.memory, workers))
+            return print()
         power = processing_power(session.local)
         power["context"] = f"{session.local.num_ctx:,} tokens" + ("" if session.local.fixed_ctx else " (auto-sized)")
         power["parallel"] = session.config.get("lobe_parallel", True) is not False

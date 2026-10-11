@@ -320,9 +320,13 @@ The crew is paid in pirate coin and the treasures of the sea.
   - **Currents**: how the work is distributed: calls each worker (Claude, the
     local model) answered, characters produced and speed, and which crew
     members carried the work.
-  - **Undertow**: what is held back: calls a worker couldn't take (sent on to
-    the next), secrets memory refused to store, bottles that washed ashore,
-    chats from the old incognito mode.
+  - **Undertow**: the Mariana Trench drives it, pulling down whatever is held
+    back: calls a worker couldn't take (sent on to the next), secrets memory
+    refused to store, bottles that washed ashore, chats from the old incognito
+    mode. Each thing pulled under sinks a tenth of the trench (1,093 m) and a
+    depth gauge shows the zone it has reached; ten reach Challenger Deep
+    (10,935 m). Nothing the trench takes comes back up into a reply.
+    `/trench` (or `/undertow`) shows it on its own.
   - **Flow of information**: exactly how much data, from which source (memory,
     notebooks, profile, shipwrecks, goals, role, skills), reached the last reply.
 

@@ -113,7 +113,8 @@ SECTIONS = [
               "as a shipwreck: a law in the Reef Courtesy Standard Operation. A board with all ten wrecks is a black pearl. "
               "The marlin is the people: your goals, direction and future. Poseidon's Trident, his most powerful asset and "
               "his bread and butter, is the working class: the processing power and how the work is distributed "
-              "(/trident). the Kraken, the Judge, is Treasurer.",
+              "(/trident). The Mariana Trench drives its undertow, pulling down whatever is held back (/trench). "
+              "The Kraken, the Judge, is Treasurer.",
      "fields": [
          {"key": "law_threshold", "label": "Ayes to sink a galleon (make a law)", "kind": "number", "min": 6, "max": 10,
           "help": "10 means every shilling must vote aye. Throw a message in a bottle (a single amendment) in chat with /law <text>."},

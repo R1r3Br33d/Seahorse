@@ -27,8 +27,11 @@ treasury.py - the ship's treasury, paid in pirate coin and the treasures of the 
                  among them; the Atlantean control of currents, undertow and the
                  flow of information (/trident):
                    currents   how the work is distributed across the workers
-                   undertow   what is held back: calls a worker couldn't take,
-                              secrets never stored, bottles washed ashore
+                   undertow   what is held back, pulled down by the Mariana
+                              Trench (/trench): calls a worker couldn't take,
+                              secrets never stored, bottles washed ashore.
+                              Each thing pulled under sinks a tenth of the
+                              way (1,093 m); ten reach Challenger Deep.
                    flow       how much data, from which source, reaches each reply
     BUDGET       How the marlin is shared across your goals, in parts out of 100
                  (/budget). Every shilling of work the crew carries is counted
@@ -545,13 +548,52 @@ def budget_text():
     return "\n".join(lines)
 
 
+CHALLENGER_DEEP = 10_935   # metres - the deepest point of the Mariana Trench
+
+
+def trench_lines(data=None, memory=None, workers=None):
+    """The undertow. The Mariana Trench drives it: whatever is held back is pulled down into
+    the trench. Each thing sinks a tenth of the way; ten of them reach Challenger Deep."""
+    data, workers = data or _load(), workers or []
+    blocked = 0
+    if memory is not None:
+        try:
+            blocked = memory.db.execute("SELECT COUNT(*) FROM memory_log WHERE action='blocked'").fetchone()[0]
+        except Exception:  # noqa: BLE001 - the count is a nicety
+            blocked = 0
+    down = sum(w.get("unavailable", 0) for w in workers)
+    ashore = len(data.get("failed", []))
+    pulled = down + blocked + ashore
+    depth = min(CHALLENGER_DEEP, round(pulled * CHALLENGER_DEEP / 10))
+    gauge = "▼" * min(10, pulled) + "·" * (10 - min(10, pulled))
+    where = ("still in the sunlight zone, nothing pulled under" if not pulled else
+             "resting on the floor of Challenger Deep" if depth >= CHALLENGER_DEEP else
+             "in the hadal zone, the trench's own water" if depth >= 6_000 else
+             "in the abyss" if depth >= 4_000 else
+             "in the midnight zone" if depth >= 1_000 else "in the twilight zone")
+    return ["  Undertow - the Mariana Trench pulls under whatever is held back:",
+            f"    calls a worker couldn't take (sent on to the next): {down}",
+            f"    secrets (passwords, keys, card numbers) refused by memory: {blocked}",
+            f"    bottles voted down and washed ashore: {ashore}",
+            "    chats saved under the old incognito mode: excluded from training and your profile",
+            f"    depth  {gauge}  {depth:,} m of {CHALLENGER_DEEP:,} m - {where}"]
+
+
+def trench_text(memory=None, workers=None):
+    """/trench - the undertow on its own."""
+    return "\n".join(["  ⌄ The Mariana Trench - the source of the undertow. Nothing it takes comes back up",
+                      "    into a reply: not a refused secret, not a sunk bottle, not a call that failed.", ""]
+                     + trench_lines(None, memory, workers))
+
+
 def trident_text(flow=None, memory=None, power=None, workers=None, order=None):
     """Poseidon's Trident - the working class: the processing power, and how the work is distributed."""
     data = _load()
     power, workers, order = power or {}, workers or [], order or []
     lines = ["  Ψ Poseidon's Trident - his most powerful asset, his bread and butter. The working class: the",
              "    processing power that does the crew's work, and how that work is distributed. Its prongs are",
-             "    currents (distribution), undertow (what is held back) and the flow of information.", "",
+             "    currents (distribution), undertow (what is held back, pulled down by the Mariana Trench)",
+             "    and the flow of information.", "",
              "  Processing power:"]
     ram = power.get("ram")
     lines += [f"    CPU     {power.get('cpu', '?')}",
@@ -575,19 +617,8 @@ def trident_text(flow=None, memory=None, power=None, workers=None, order=None):
     carried = [(a, data["shillings"].get(a, {}).get("work", 0)) for a in order]
     busy = [f"{shilling(a, order)} {a} {n}" for a, n in sorted(carried, key=lambda kv: -kv[1]) if n][:6]
     lines.append("    work carried by the crew: " + (" · ".join(busy) if busy else "none yet"))
-    blocked = 0
-    if memory is not None:
-        try:
-            blocked = memory.db.execute("SELECT COUNT(*) FROM memory_log WHERE action='blocked'").fetchone()[0]
-        except Exception:  # noqa: BLE001 - the count is a nicety
-            blocked = 0
-    down = sum(w.get("unavailable", 0) for w in workers)
-    lines += ["", "  Undertow - what is held back or pulled under:",
-              f"    calls a worker couldn't take (sent on to the next): {down}",
-              f"    secrets (passwords, keys, card numbers) refused by memory: {blocked}",
-              f"    bottles voted down and washed ashore: {len(data['failed'])}",
-              "    chats saved under the old incognito mode: excluded from training and your profile",
-              "", "  Flow of information - the data that reached the last reply:"]
+    lines += [""] + trench_lines(data, memory, workers)
+    lines += ["", "  Flow of information - the data that reached the last reply:"]
     if flow:
         agent, parts = flow
         total_chars = sum(n for _l, n in parts) or 1
