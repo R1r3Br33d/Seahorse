@@ -1,7 +1,8 @@
-__pycache__/
+# personal data lives in ~/.seahorse, never in the repo
+*.db
 *.pyc
 .DS_Store
-# personal data lives in ~/.seahorse, never in the repo
-.seahorse/
-*.db
 .env
+.seahorse/
+__pycache__/
+docs/build-conversation.md
